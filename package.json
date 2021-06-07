@@ -1,0 +1,19 @@
+{
+  "name": "serum_to_s3",
+  "version": "1.0.0",
+  "description": "Scrapes Serum DEX events and pushes it to S3",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jackiep00/serum_to_s3.git"
+  },
+  "author": "jackiepoo",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jackiep00/serum_to_s3/issues"
+  },
+  "homepage": "https://github.com/jackiep00/serum_to_s3#readme"
+}
