@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Scrapes Serum DEX events and pushes it to S3",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,5 +16,14 @@
   "bugs": {
     "url": "https://github.com/jackiep00/serum_to_s3/issues"
   },
-  "homepage": "https://github.com/jackiep00/serum_to_s3#readme"
+  "homepage": "https://github.com/jackiep00/serum_to_s3#readme",
+  "dependencies": {
+    "@project-serum/serum": "^0.13.38",
+    "@solana/web3.js": "^1.17.0",
+    "aws-sdk": "^2.922.0",
+    "dotenv": "^10.0.0"
+  },
+  "devDependencies": {
+    
+  }
 }

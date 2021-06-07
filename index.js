@@ -1,14 +1,16 @@
 
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Market, OpenOrders } from '@project-serum/serum';
-import Database from 'better-sqlite3';
+// import Database from 'better-sqlite3';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
-require("dotenv").config(); // is this the right syntax for mjs?
+import { config } from 'dotenv';
+config();
 
+/*
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const INFO_LEVEL = 'INFO';
@@ -252,3 +254,6 @@ var main = async function() {
 
 
 await main();
+*/
+
+console.log(`${process.env.RPC}`);
