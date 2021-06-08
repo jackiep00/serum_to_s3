@@ -8,6 +8,20 @@ config();
 
 const INFO_LEVEL = 'INFO';
 
+// Object that defines a market's metadata
+type MarketMeta = {
+  address: string;
+  name: string;
+  deprecated: boolean;
+  programId: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
+  _baseSplTokenDecimals?: number;
+  _quoteSplTokenDecimals?: number;
+};
+
+type FillEvent = {};
+
 /*
 const getOwner = async function (connection, openOrders, programID) {
   const o = await OpenOrders.load(
@@ -223,18 +237,6 @@ const log = function (message, level, marketMeta) {
 };
 */
 
-// Object that defines a market's metadata
-type MarketMeta = {
-  address: string;
-  name: string;
-  deprecated: boolean;
-  programId: string;
-  baseCurrency?: string;
-  quoteCurrency?: string;
-  _baseSplTokenDecimals?: number;
-  _quoteSplTokenDecimals?: number;
-};
-
 const main = async function () {
   const waitTime = 50;
 
@@ -256,13 +258,16 @@ const main = async function () {
     // Contrary to the docs - you need to pass programID as well it seems
     let market = await Market.load(connection, marketAddress, {}, programID);
 
+    // Ignoring the fact that we're grabbing private variables from serum.Markets
+    // @ts-ignore
     marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
+    // @ts-ignore
     marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
 
     console.log(marketMeta['name']);
 
     let loadTimestamp = new Date().toISOString();
-    let events = await market.loadEventQueue(connection);
+    let events = await market.loadFills(connection, 1000);
 
     let marketEventsLength = events.length;
     console.log(marketEventsLength);
