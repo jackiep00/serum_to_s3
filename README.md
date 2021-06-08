@@ -1,12 +1,12 @@
 # serum_to_s3
 Scrape Serum DEX events and push to an S3 bucket.
 
-Core scraper functionality forked from [SerumTaxTime](https://github.com/SerumTaxTime/SerumTaxTimeApi) and repurposed into a Node app
+Core scraper logic forked from [SerumTaxTime](https://github.com/SerumTaxTime/SerumTaxTimeApi), converted to stricter TypeScript, and put into a formal Node app.
 
 ## Installation
 
-`npm install`
+`yarn`
 
 ## Running
 
-`node index.js`
+`yarn start`
