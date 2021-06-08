@@ -10,7 +10,9 @@ import fs from 'fs';
 import { config } from 'dotenv';
 config();
 
-/*
+
+
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const INFO_LEVEL = 'INFO';
@@ -254,6 +256,5 @@ var main = async function() {
 
 
 await main();
-*/
 
 console.log(`${process.env.RPC}`);
