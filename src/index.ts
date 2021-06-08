@@ -1,58 +1,20 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Market, OpenOrders } from '@project-serum/serum';
-import { Event } from '@project-serum/serum/lib/queue';
-import MarketsJSON from './config/markets.json';
-import BN from 'bn.js';
-import { writeFileSync } from 'fs';
+import { MarketMeta, FullEvent, FullEventMeta } from './types';
+import {
+  SOLANA_RPC_URL,
+  AWS_ACCESS_KEY,
+  AWS_SECRET_ACCESS_KEY,
+  REGION,
+  FOLDER,
+  BUCKET,
+} from './config';
 
-import { config } from 'dotenv';
-config();
+import MarketsJSON from './config/markets.json';
+// import { writeFileSync } from 'fs';
+import S3 from 'aws-sdk/clients/s3';
 
 const INFO_LEVEL = 'INFO';
-
-// Object that defines a market's metadata
-type MarketMeta = {
-  address: string;
-  name: string;
-  deprecated: boolean;
-  programId: string;
-  baseCurrency?: string;
-  quoteCurrency?: string;
-  _baseSplTokenDecimals?: number;
-  _quoteSplTokenDecimals?: number;
-};
-
-interface FullEvent extends Event {
-  clientOrderId: BN;
-  side: string;
-  price: number;
-  feeCost: number;
-  size: number;
-}
-
-type FullEventMeta = {
-  address: string;
-  programId: string;
-  baseCurrency?: string;
-  quoteCurrency?: string;
-  isFill: boolean;
-  isOut: boolean;
-  isBid: boolean;
-  isMaker: boolean;
-  openOrdersSlot: number;
-  feeTier: number;
-  nativeQuantityRelease: BN;
-  nativeQuantityPaid: BN;
-  nativeFeeOrRebate: BN;
-  orderId: BN;
-  openOrders: PublicKey;
-  clientOrderId: BN;
-  side: string;
-  price: number;
-  feeCost: number;
-  size: number;
-  loadTimestamp: string;
-};
 
 const formatEvents = async function (
   events: FullEvent[],
@@ -92,7 +54,6 @@ const formatEvents = async function (
 
 const main = async function () {
   const waitTime = 50;
-
   // Remove deprecated items
   const markets: MarketMeta[] = MarketsJSON.filter((item, i, ar) => !item['deprecated']);
 
@@ -105,7 +66,7 @@ const main = async function () {
     marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
     marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
 
-    let connection = new Connection(`${process.env.RPC}`);
+    let connection = new Connection(SOLANA_RPC_URL);
     let marketAddress = new PublicKey(marketMeta['address']);
     let programID = new PublicKey(marketMeta['programId']);
 
@@ -132,32 +93,42 @@ const main = async function () {
 
     all_market_events.push(...currentMarket);
 
-    // let queueOffset = getQueueOffset(events, marketMeta, db);
-
-    // let newEvents = events.slice(0, queueOffset);
-
-    // await addOwnerMappings(newEvents, db, connection, marketMeta);
-    // insertCurrencyMeta(marketMeta, db);
-
-    // Only insert filled events to save space
-    // let filledEvents = newEvents.filter((item, i, ar) => item.eventFlags['fill']);
-    //insertEvents(filledEvents, marketMeta, loadTimestamp);
-
-    // Insert all events for more convenient matching
-    //insertStringEvents(newEvents, marketEventsLength, marketMeta, loadTimestamp, db);
-
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
 
-  let loadTimestamp = new Date().toISOString();
-
   console.log(all_market_events);
 
-  writeFileSync(
-    // execution path expected to be the root folder
-    `./output/all_market_events_${loadTimestamp}.json`,
-    JSON.stringify(all_market_events),
-  );
+  let loadTimestamp = new Date().toISOString();
+
+  // writeFileSync(
+  //   // execution path expected to be the root folder
+  //   `./output/all_market_events_${loadTimestamp}.json`,
+  //   JSON.stringify(all_market_events),
+  // );
+
+  const buf = Buffer.from(JSON.stringify(all_market_events));
+
+  const bucket = new S3({
+    accessKeyId: AWS_ACCESS_KEY, // For example, 'AKIXXXXXXXXXXXGKUY'.
+    secretAccessKey: AWS_SECRET_ACCESS_KEY, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
+    region: REGION, // For example, 'us-east-1'.
+  });
+
+  const params = {
+    Bucket: BUCKET,
+    Key: `all_market_events_${loadTimestamp}.json`,
+    Body: buf,
+    ACL: 'public-read',
+  };
+
+  bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
+    if (err) {
+      console.log('There was an error uploading your file: ', err);
+      return false;
+    }
+    console.log('Successfully uploaded file.', data);
+    return true;
+  });
 };
 
 main();
