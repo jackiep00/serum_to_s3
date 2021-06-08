@@ -2,10 +2,12 @@
   "name": "serum_to_s3",
   "version": "1.0.0",
   "description": "Scrapes Serum DEX events and pushes it to S3",
-  "main": "index.ts",
-  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "ts-node src/index.ts",
+    "build": "tsc"
   },
   "repository": {
     "type": "git",
@@ -22,6 +24,7 @@
     "@solana/web3.js": "^1.17.0",
     "aws-sdk": "^2.922.0",
     "dotenv": "^10.0.0",
+    "nodemon": "^2.0.7",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.2"
   },
