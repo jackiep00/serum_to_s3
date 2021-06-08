@@ -1,23 +1,16 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Market, OpenOrders } from '@project-serum/serum';
-// import Database from 'better-sqlite3';
-
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
+import { Event } from '@project-serum/serum/lib/queue';
+import MarketsJSON from './config/markets.json';
 
 import { config } from 'dotenv';
 config();
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 const INFO_LEVEL = 'INFO';
-const ERROR_LEVEL = 'ERROR';
-const dbPath = path.join(__dirname, 'events.db');
-const marketsPath = path.join(__dirname, 'markets.json');
 
-var getOwner = async function (connection, openOrders, programID) {
-  var o = await OpenOrders.load(
+/*
+const getOwner = async function (connection, openOrders, programID) {
+  const o = await OpenOrders.load(
     connection,
     new PublicKey(openOrders),
     new PublicKey(programID),
@@ -26,7 +19,7 @@ var getOwner = async function (connection, openOrders, programID) {
   return o.owner.toString();
 };
 
-var addOwnerMappings = async function (events, db, connection, marketMeta) {
+const addOwnerMappings = async function (events: Event[], db, connection, marketMeta) {
   let waitTime = 50;
 
   // unique openOrders
@@ -37,7 +30,7 @@ var addOwnerMappings = async function (events, db, connection, marketMeta) {
   let selectSql = 'SELECT owner FROM owners WHERE openOrders = ?';
   let insertSql = 'INSERT INTO owners (openOrders, owner) VALUES (?, ?)';
 
-  var multipleApiCalls = false;
+  const multipleApiCalls = false;
   for (let openOrders of uniqueOpenOrders) {
     const row = db.prepare(selectSql).get(openOrders);
 
@@ -69,7 +62,8 @@ var addOwnerMappings = async function (events, db, connection, marketMeta) {
   }
 };
 
-var insertStringEvents = function (
+
+const insertStringEvents = function (
   events,
   marketEventsLength,
   marketMeta,
@@ -130,47 +124,47 @@ var insertStringEvents = function (
     numEventsToDelete,
   );
 };
+*/
 
-var insertEvents = async function (events, marketMeta, loadTimestamp, db) {
-  let start = new Date();
+const insertEvents = async function (
+  events: Event[],
+  marketMeta: MarketMeta,
+  loadTimestamp: string,
+) {
+  console.log(events);
 
-  let insertSQL = `INSERT INTO events
-        (address, programId, baseCurrency, quoteCurrency, fill, out, bid, maker, openOrdersSlot, feeTier, nativeQuantityReleased, nativeQuantityPaid, nativeFeeOrRebate, orderId, openOrders, clientOrderId, loadTimestamp)
-        VALUES
-        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  // const insertEvents = db.transaction((events, marketMeta) => {
+  //   for (const event of events) {
+  //     insert.run(
+  //       marketMeta['address'],
+  //       marketMeta['programId'],
+  //       marketMeta['baseCurrency'],
+  //       marketMeta['quoteCurrency'],
+  //       event.eventFlags['fill'] ? 1 : 0,
+  //       event.eventFlags['out'] ? 1 : 0,
+  //       event.eventFlags['bid'] ? 1 : 0,
+  //       event.eventFlags['maker'] ? 1 : 0,
+  //       event.openOrdersSlot,
+  //       event.feeTier,
+  //       parseInt(event.nativeQuantityReleased.toString()),
+  //       parseInt(event.nativeQuantityPaid.toString()),
+  //       event.nativeFeeOrRebate.toString(),
+  //       event.orderId.toString(),
+  //       event.openOrders.toString(),
+  //       event.clientOrderId.toString(),
+  //       loadTimestamp,
+  //     );
+  //   }
 
-  const insert = db.prepare(insertSQL);
+  // });
 
-  const insertEvents = db.transaction((events, marketMeta) => {
-    for (const event of events) {
-      insert.run(
-        marketMeta['address'],
-        marketMeta['programId'],
-        marketMeta['baseCurrency'],
-        marketMeta['quoteCurrency'],
-        event.eventFlags['fill'] ? 1 : 0,
-        event.eventFlags['out'] ? 1 : 0,
-        event.eventFlags['bid'] ? 1 : 0,
-        event.eventFlags['maker'] ? 1 : 0,
-        event.openOrdersSlot,
-        event.feeTier,
-        parseInt(event.nativeQuantityReleased.toString()),
-        parseInt(event.nativeQuantityPaid.toString()),
-        event.nativeFeeOrRebate.toString(),
-        event.orderId.toString(),
-        event.openOrders.toString(),
-        event.clientOrderId.toString(),
-        loadTimestamp,
-      );
-    }
-  });
+  // insertEvents(events, marketMeta);
 
-  insertEvents(events, marketMeta);
-
-  log('Inserted ' + events.length + ' events', INFO_LEVEL, marketMeta);
+  // log('Inserted ' + events.length + ' events', INFO_LEVEL, marketMeta);
 };
 
-var insertCurrencyMeta = async function (marketMeta, db) {
+/*
+const insertCurrencyMeta = async function (marketMeta: MarketMeta, db) {
   let row;
   let recordFound;
 
@@ -216,7 +210,7 @@ var insertCurrencyMeta = async function (marketMeta, db) {
   }
 };
 
-var log = function (message, level, marketMeta) {
+const log = function (message, level, marketMeta) {
   const db = new Database(dbPath);
 
   const timestamp = new Date().toISOString();
@@ -227,17 +221,27 @@ var log = function (message, level, marketMeta) {
 
   console.log(message);
 };
+*/
 
-var main = async function () {
-  const db = new Database(dbPath);
+// Object that defines a market's metadata
+type MarketMeta = {
+  address: string;
+  name: string;
+  deprecated: boolean;
+  programId: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
+  _baseSplTokenDecimals?: number;
+  _quoteSplTokenDecimals?: number;
+};
+
+const main = async function () {
   const waitTime = 50;
 
-  var markets = JSON.parse(fs.readFileSync(marketsPath, 'utf8'));
-
   // Remove deprecated items
-  markets = markets.filter((item, i, ar) => !item['deprecated']);
+  const markets: MarketMeta[] = MarketsJSON.filter((item, i, ar) => !item['deprecated']);
 
-  for (var i = 0; i < markets.length; i++) {
+  for (let i = 0; i < markets.length; i++) {
     console.log(i);
 
     let marketMeta = markets[i];
@@ -258,31 +262,31 @@ var main = async function () {
     console.log(marketMeta['name']);
 
     let loadTimestamp = new Date().toISOString();
-    let events = await market.loadEventQueue(connection, 1000000);
+    let events = await market.loadEventQueue(connection);
 
     let marketEventsLength = events.length;
     console.log(marketEventsLength);
 
-    log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
+    console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
 
-    let queueOffset = getQueueOffset(events, marketMeta, db);
+    insertEvents(events, marketMeta, loadTimestamp);
 
-    let newEvents = events.slice(0, queueOffset);
+    // let queueOffset = getQueueOffset(events, marketMeta, db);
 
-    await addOwnerMappings(newEvents, db, connection, marketMeta);
-    insertCurrencyMeta(marketMeta, db);
+    // let newEvents = events.slice(0, queueOffset);
+
+    // await addOwnerMappings(newEvents, db, connection, marketMeta);
+    // insertCurrencyMeta(marketMeta, db);
 
     // Only insert filled events to save space
-    let filledEvents = newEvents.filter((item, i, ar) => item.eventFlags['fill']);
-    insertEvents(filledEvents, marketMeta, loadTimestamp, db);
+    // let filledEvents = newEvents.filter((item, i, ar) => item.eventFlags['fill']);
+    //insertEvents(filledEvents, marketMeta, loadTimestamp);
 
     // Insert all events for more convenient matching
-    insertStringEvents(newEvents, marketEventsLength, marketMeta, loadTimestamp, db);
+    //insertStringEvents(newEvents, marketEventsLength, marketMeta, loadTimestamp, db);
 
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
 };
 
-await main();
-
-console.log(`${process.env.RPC}`);
+main();
