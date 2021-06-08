@@ -116,9 +116,11 @@ const main = async function () {
 
   const params = {
     Bucket: BUCKET,
-    Key: `all_market_events_${loadTimestamp}.json`,
+    Key: FOLDER
+      ? `${FOLDER}/all_market_events_${loadTimestamp}.json`
+      : `all_market_events_${loadTimestamp}.json`,
     Body: buf,
-    ACL: 'public-read',
+    ACL: 'private',
   };
 
   bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
