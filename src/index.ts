@@ -2,6 +2,8 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { Market, OpenOrders } from '@project-serum/serum';
 import { Event } from '@project-serum/serum/lib/queue';
 import MarketsJSON from './config/markets.json';
+import BN from 'bn.js';
+import { writeFileSync } from 'fs';
 
 import { config } from 'dotenv';
 config();
@@ -20,222 +22,73 @@ type MarketMeta = {
   _quoteSplTokenDecimals?: number;
 };
 
-type FillEvent = {};
+interface FullEvent extends Event {
+  clientOrderId: BN;
+  side: string;
+  price: number;
+  feeCost: number;
+  size: number;
+}
 
-/*
-const getOwner = async function (connection, openOrders, programID) {
-  const o = await OpenOrders.load(
-    connection,
-    new PublicKey(openOrders),
-    new PublicKey(programID),
-  );
-
-  return o.owner.toString();
+type FullEventMeta = {
+  address: string;
+  programId: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
+  isFill: boolean;
+  isOut: boolean;
+  isBid: boolean;
+  isMaker: boolean;
+  openOrdersSlot: number;
+  feeTier: number;
+  nativeQuantityRelease: BN;
+  nativeQuantityPaid: BN;
+  nativeFeeOrRebate: BN;
+  orderId: BN;
+  openOrders: PublicKey;
+  clientOrderId: BN;
+  side: string;
+  price: number;
+  feeCost: number;
+  size: number;
+  loadTimestamp: string;
 };
 
-const addOwnerMappings = async function (events: Event[], db, connection, marketMeta) {
-  let waitTime = 50;
-
-  // unique openOrders
-  let uniqueOpenOrders = events
-    .map((e) => e.openOrders.toString())
-    .filter((item, i, ar) => ar.indexOf(item) === i);
-
-  let selectSql = 'SELECT owner FROM owners WHERE openOrders = ?';
-  let insertSql = 'INSERT INTO owners (openOrders, owner) VALUES (?, ?)';
-
-  const multipleApiCalls = false;
-  for (let openOrders of uniqueOpenOrders) {
-    const row = db.prepare(selectSql).get(openOrders);
-
-    let recordFound = !(row === undefined);
-
-    if (!recordFound) {
-      // If we're going to be hitting the API multiple times - wait a small amount of time between each call
-      if (multipleApiCalls) {
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-      }
-
-      try {
-        // I have seen errors here from the api call - just log them for retrying later (priority is to insert events)
-        let owner = await getOwner(connection, openOrders, marketMeta['programId']);
-        log('Creating new owner record for ' + openOrders, INFO_LEVEL, marketMeta);
-        db.prepare(insertSql).run(openOrders, owner);
-      } catch (error) {
-        log(
-          'Error for openOrder: ' + openOrders + '. Error: ' + error.toString(),
-          ERROR_LEVEL,
-          marketMeta,
-        );
-      }
-
-      multipleApiCalls = true;
-    } else {
-      log('Owner record already exists for ' + openOrders, INFO_LEVEL, marketMeta);
-    }
-  }
-};
-
-
-const insertStringEvents = function (
-  events,
-  marketEventsLength,
-  marketMeta,
-  loadTimestamp,
-  db,
-) {
-  let insertSQL =
-    'INSERT INTO string_events (address, programId, raw_event, parsed_event, loadTimestamp) values (?, ?, ?, ?, ?)';
-
-  const insert = db.prepare(insertSQL);
-
-  const insertEvents = db.transaction((events, marketMeta) => {
-    for (const event of events) {
-      insert.run(
-        marketMeta['address'],
-        marketMeta['programId'],
-        JSON.stringify(event),
-        // TODO: this should be shared with insertEvents - DRY
-        JSON.stringify({
-          fill: event.eventFlags['fill'] ? 1 : 0,
-          bid: event.eventFlags['bid'] ? 1 : 0,
-          out: event.eventFlags['out'] ? 1 : 0,
-          maker: event.eventFlags['maker'] ? 1 : 0,
-          openOrdersSlot: event.openOrdersSlot,
-          feeTier: event.feeTier,
-          nativeQuantityReleased: parseInt(event.nativeQuantityReleased.toString()),
-          nativeQuantityPaid: parseInt(event.nativeQuantityPaid.toString()),
-          nativeFeeOrRebate: event.nativeFeeOrRebate.toString(),
-          orderId: event.orderId.toString(),
-          openOrders: event.openOrders.toString(),
-          clientOrderId: event.clientOrderId.toString(),
-        }),
-
-        loadTimestamp,
-      );
-    }
-  });
-
-  insertEvents(events, marketMeta);
-
-  log('Inserted ' + events.length + ' events strings', INFO_LEVEL, marketMeta);
-
-  // events older than the last event in the most recent API call can't be used for matching - delete them to save space
-  let eventCount = db
-    .prepare(
-      'SELECT count(*) as eventCount FROM string_events WHERE address = ? and programId = ?',
-    )
-    .get(marketMeta['address'], marketMeta['programId'])['eventCount'];
-  let numEventsToDelete = eventCount - marketEventsLength;
-
-  console.log('Deleting ' + numEventsToDelete + ' events strings');
-
-  let deleteSQL =
-    'DELETE FROM string_events WHERE id IN (SELECT id FROM string_events WHERE address = ? and programId = ? ORDER BY id ASC LIMIT ?)';
-  db.prepare(deleteSQL).run(
-    marketMeta['address'],
-    marketMeta['programId'],
-    numEventsToDelete,
-  );
-};
-*/
-
-const insertEvents = async function (
-  events: Event[],
+const formatEvents = async function (
+  events: FullEvent[],
   marketMeta: MarketMeta,
   loadTimestamp: string,
-) {
-  console.log(events);
-
-  // const insertEvents = db.transaction((events, marketMeta) => {
-  //   for (const event of events) {
-  //     insert.run(
-  //       marketMeta['address'],
-  //       marketMeta['programId'],
-  //       marketMeta['baseCurrency'],
-  //       marketMeta['quoteCurrency'],
-  //       event.eventFlags['fill'] ? 1 : 0,
-  //       event.eventFlags['out'] ? 1 : 0,
-  //       event.eventFlags['bid'] ? 1 : 0,
-  //       event.eventFlags['maker'] ? 1 : 0,
-  //       event.openOrdersSlot,
-  //       event.feeTier,
-  //       parseInt(event.nativeQuantityReleased.toString()),
-  //       parseInt(event.nativeQuantityPaid.toString()),
-  //       event.nativeFeeOrRebate.toString(),
-  //       event.orderId.toString(),
-  //       event.openOrders.toString(),
-  //       event.clientOrderId.toString(),
-  //       loadTimestamp,
-  //     );
-  //   }
-
-  // });
-
-  // insertEvents(events, marketMeta);
-
-  // log('Inserted ' + events.length + ' events', INFO_LEVEL, marketMeta);
-};
-
-/*
-const insertCurrencyMeta = async function (marketMeta: MarketMeta, db) {
-  let row;
-  let recordFound;
-
-  let selectSql =
-    'SELECT currency FROM currency_meta WHERE address = ? and programId = ? and currency = ?';
-  let insertSql =
-    'INSERT INTO currency_meta (address, programId, currency, MintDecimals) VALUES (?, ?, ?, ?)';
-
-  row = db
-    .prepare(selectSql)
-    .get(marketMeta['address'], marketMeta['programId'], marketMeta['baseCurrency']);
-  recordFound = !(row === undefined);
-  if (!recordFound) {
-    log(
-      'inserting MintDecimals for ' + marketMeta['baseCurrency'],
-      INFO_LEVEL,
-      marketMeta,
-    );
-    db.prepare(insertSql).run(
-      marketMeta['address'],
-      marketMeta['programId'],
-      marketMeta['baseCurrency'],
-      marketMeta['_baseSplTokenDecimals'],
-    );
+): Promise<FullEventMeta[]> {
+  const full_meta_events: FullEventMeta[] = [];
+  for (const event of events) {
+    const full_meta_event: FullEventMeta = {
+      address: marketMeta['address'],
+      programId: marketMeta['programId'],
+      baseCurrency: marketMeta['baseCurrency'],
+      quoteCurrency: marketMeta['quoteCurrency'],
+      isFill: event.eventFlags['fill'] ? true : false,
+      isOut: event.eventFlags['out'] ? true : false,
+      isBid: event.eventFlags['bid'] ? true : false,
+      isMaker: event.eventFlags['maker'] ? true : false,
+      openOrdersSlot: event.openOrdersSlot,
+      feeTier: event.feeTier,
+      nativeQuantityRelease: event.nativeQuantityReleased,
+      nativeQuantityPaid: event.nativeQuantityPaid,
+      nativeFeeOrRebate: event.nativeFeeOrRebate,
+      orderId: event.orderId,
+      openOrders: event.openOrders,
+      clientOrderId: event.clientOrderId,
+      side: event.side,
+      price: event.price,
+      feeCost: event.feeCost,
+      size: event.size,
+      loadTimestamp: loadTimestamp,
+    };
+    full_meta_events.push(full_meta_event);
   }
 
-  row = db
-    .prepare(selectSql)
-    .get(marketMeta['address'], marketMeta['programId'], marketMeta['quoteCurrency']);
-  recordFound = !(row === undefined);
-  if (!recordFound) {
-    log(
-      'inserting MintDecimals for ' + marketMeta['quoteCurrency'],
-      INFO_LEVEL,
-      marketMeta,
-    );
-    db.prepare(insertSql).run(
-      marketMeta['address'],
-      marketMeta['programId'],
-      marketMeta['quoteCurrency'],
-      marketMeta['_quoteSplTokenDecimals'],
-    );
-  }
+  return full_meta_events;
 };
-
-const log = function (message, level, marketMeta) {
-  const db = new Database(dbPath);
-
-  const timestamp = new Date().toISOString();
-
-  db.prepare(
-    'insert into log (address, programId, message, level, timestamp) values (?, ?, ?, ?, ?)',
-  ).run(marketMeta['address'], marketMeta['programId'], message, level, timestamp);
-
-  console.log(message);
-};
-*/
 
 const main = async function () {
   const waitTime = 50;
@@ -243,6 +96,7 @@ const main = async function () {
   // Remove deprecated items
   const markets: MarketMeta[] = MarketsJSON.filter((item, i, ar) => !item['deprecated']);
 
+  const all_market_events: FullEventMeta[] = [];
   for (let i = 0; i < markets.length; i++) {
     console.log(i);
 
@@ -267,14 +121,16 @@ const main = async function () {
     console.log(marketMeta['name']);
 
     let loadTimestamp = new Date().toISOString();
-    let events = await market.loadFills(connection, 1000);
+    let events: FullEvent[] = await market.loadFills(connection, 1000);
 
     let marketEventsLength = events.length;
     console.log(marketEventsLength);
 
     console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
 
-    insertEvents(events, marketMeta, loadTimestamp);
+    const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
+
+    all_market_events.push(...currentMarket);
 
     // let queueOffset = getQueueOffset(events, marketMeta, db);
 
@@ -292,6 +148,16 @@ const main = async function () {
 
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
+
+  let loadTimestamp = new Date().toISOString();
+
+  console.log(all_market_events);
+
+  writeFileSync(
+    // execution path expected to be the root folder
+    `./output/all_market_events_${loadTimestamp}.json`,
+    JSON.stringify(all_market_events),
+  );
 };
 
 main();
