@@ -4,10 +4,10 @@ import BN from 'bn.js';
 
 // Object that defines a market's metadata
 export type MarketMeta = {
-  address: string;
+  address: PublicKey;
   name: string;
   deprecated: boolean;
-  programId: string;
+  programId: PublicKey;
   baseCurrency?: string;
   quoteCurrency?: string;
   _baseSplTokenDecimals?: number;
@@ -23,8 +23,8 @@ export interface FullEvent extends Event {
 }
 
 export type FullEventMeta = {
-  address: string;
-  programId: string;
+  address: PublicKey;
+  programId: PublicKey;
   baseCurrency?: string;
   quoteCurrency?: string;
   isFill: boolean;

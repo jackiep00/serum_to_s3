@@ -1,5 +1,5 @@
 import { Connection, PublicKey } from '@solana/web3.js';
-import { Market, OpenOrders } from '@project-serum/serum';
+import { Market, MARKETS } from '@project-serum/serum';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import {
   SOLANA_RPC_URL,
@@ -10,7 +10,6 @@ import {
   BUCKET,
 } from './config';
 
-import MarketsJSON from './config/markets.json';
 // import { writeFileSync } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
 
@@ -55,13 +54,15 @@ const formatEvents = async function (
 const main = async function () {
   const waitTime = 50;
   // Remove deprecated items
-  const markets: MarketMeta[] = MarketsJSON.filter((item, i, ar) => !item['deprecated']);
+  const active_markets: MarketMeta[] = MARKETS.filter(
+    (item, i, ar) => !item['deprecated'],
+  );
 
   const all_market_events: FullEventMeta[] = [];
-  for (let i = 0; i < markets.length; i++) {
+  for (let i = 0; i < active_markets.length; i++) {
     console.log(i);
 
-    let marketMeta = markets[i];
+    let marketMeta = active_markets[i];
 
     marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
     marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
@@ -95,9 +96,6 @@ const main = async function () {
 
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
-
-  console.log(all_market_events);
-
   let loadTimestamp = new Date().toISOString();
 
   // writeFileSync(
