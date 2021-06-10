@@ -111,75 +111,78 @@ function safeWrite(
 }
 
 const main = async function () {
-  const waitTime = 50;
+  let loadTimestamp = new Date().toISOString();
+  const eventFilename = `output/all_market_events_${loadTimestamp}.json`;
+  const waitTime = 25;
+
   // Remove deprecated items
   const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
     (item, i, ar) => !item['deprecated'],
   );
 
-  let loadTimestamp = new Date().toISOString();
-  const eventFilename = `output/all_market_events_${loadTimestamp}.json`;
-
   const eventWriter = createWriteStream(eventFilename);
 
-  const all_market_events: FullEventMeta[] = [];
-  for (let i = 0; i < activeMarkets.length; i++) {
-    console.log(i);
+  while (true) {
+    let all_market_events: FullEventMeta[] = [];
 
-    let marketMeta = activeMarkets[i];
+    for (let i = 0; i < activeMarkets.length; i++) {
+      console.log(i);
 
-    marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
-    marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
+      let marketMeta = activeMarkets[i];
 
-    let connection = new Connection(SOLANA_RPC_URL);
-    let marketAddress = new PublicKey(marketMeta['address']);
-    let programID = new PublicKey(marketMeta['programId']);
+      marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
+      marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
 
-    // Contrary to the docs - you need to pass programID as well it seems
-    let market = await Market.load(connection, marketAddress, {}, programID);
+      let connection = new Connection(SOLANA_RPC_URL);
+      let marketAddress = new PublicKey(marketMeta['address']);
+      let programID = new PublicKey(marketMeta['programId']);
 
-    // Ignoring the fact that we're grabbing private variables from serum.Markets
-    // @ts-ignore
-    marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
-    // @ts-ignore
-    marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
+      // Contrary to the docs - you need to pass programID as well it seems
+      let market = await Market.load(connection, marketAddress, {}, programID);
 
-    console.log(marketMeta['name']);
+      // Ignoring the fact that we're grabbing private variables from serum.Markets
+      // @ts-ignore
+      marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
+      // @ts-ignore
+      marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
 
-    let loadTimestamp = new Date().toISOString();
-    let events: FullEvent[] = await market.loadFills(connection, 1000);
+      console.log(marketMeta['name']);
 
-    let marketEventsLength = events.length;
-    console.log(marketEventsLength);
+      let loadTimestamp = new Date().toISOString();
+      let events: FullEvent[] = await market.loadFills(connection, 1000);
 
-    console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
+      let marketEventsLength = events.length;
+      console.log(marketEventsLength);
 
-    const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
+      console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
 
-    all_market_events.push(...currentMarket);
+      const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
 
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
+      all_market_events.push(...currentMarket);
+
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
+    }
+
+    safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
+      eventWriter.end();
+    });
+
+    // writeFileSync(
+    //   // execution path expected to be the root folder
+    //   `./output/all_market_events_${loadTimestamp}.json`,
+    //   JSON.stringify(all_market_events),
+    // );
+
+    await uploadToS3(
+      eventFilename,
+      AWS_ACCESS_KEY,
+      AWS_SECRET_ACCESS_KEY,
+      REGION,
+      BUCKET,
+      FOLDER,
+      'private',
+    );
   }
-
-  safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
-    eventWriter.end();
-  });
-
-  // writeFileSync(
-  //   // execution path expected to be the root folder
-  //   `./output/all_market_events_${loadTimestamp}.json`,
-  //   JSON.stringify(all_market_events),
-  // );
-
-  await uploadToS3(
-    eventFilename,
-    AWS_ACCESS_KEY,
-    AWS_SECRET_ACCESS_KEY,
-    REGION,
-    BUCKET,
-    FOLDER,
-    'private',
-  );
 };
 
 main();
