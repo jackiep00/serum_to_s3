@@ -9,6 +9,7 @@ import {
   FOLDER,
   BUCKET,
 } from './config';
+import { createReadStream, createWriteStream, WriteStream } from 'fs';
 
 // import { writeFileSync } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
@@ -54,12 +55,72 @@ const formatEvents = async function (
   return full_meta_events;
 };
 
+const uploadToS3 = async function (
+  fileName: string,
+  accessKeyId: string,
+  secretAccessKey: string,
+  region: string,
+  bucket_name: string,
+  folder_name: string,
+  ACL: string,
+): Promise<any> {
+  const readStream = createReadStream(fileName);
+
+  const bucket = new S3({
+    accessKeyId: accessKeyId, // For example, 'AKIXXXXXXXXXXXGKUY'.
+    secretAccessKey: secretAccessKey, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
+    region: region, // For example, 'us-east-1'.
+  });
+
+  const params = {
+    Bucket: bucket_name,
+    Key: folder_name ? `${folder_name}/${fileName}` : fileName,
+    Body: readStream,
+    ACL: ACL,
+  };
+
+  return new Promise((resolve, reject) => {
+    bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
+      readStream.destroy();
+
+      if (err) {
+        return reject(err);
+      }
+
+      return resolve(data);
+    });
+  });
+};
+
+function safeWrite(
+  writer: WriteStream,
+  encoding: BufferEncoding,
+  data: any,
+  callback: () => void,
+) {
+  function write() {
+    // try to write the object and catch the result
+    let writeSuccess = writer.write(data, encoding, callback);
+    if (!writeSuccess) {
+      // Writestream got overloaded!
+      // Drain and write some more once it drains
+      writer.once('drain', write);
+    }
+  }
+  write();
+}
+
 const main = async function () {
   const waitTime = 50;
   // Remove deprecated items
   const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
     (item, i, ar) => !item['deprecated'],
   );
+
+  let loadTimestamp = new Date().toISOString();
+  const eventFilename = `output/all_market_events_${loadTimestamp}.json`;
+
+  const eventWriter = createWriteStream(eventFilename);
 
   const all_market_events: FullEventMeta[] = [];
   for (let i = 0; i < activeMarkets.length; i++) {
@@ -99,7 +160,10 @@ const main = async function () {
 
     await new Promise((resolve) => setTimeout(resolve, waitTime));
   }
-  let loadTimestamp = new Date().toISOString();
+
+  safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
+    eventWriter.end();
+  });
 
   // writeFileSync(
   //   // execution path expected to be the root folder
@@ -107,31 +171,15 @@ const main = async function () {
   //   JSON.stringify(all_market_events),
   // );
 
-  const buf = Buffer.from(JSON.stringify(all_market_events));
-
-  const bucket = new S3({
-    accessKeyId: AWS_ACCESS_KEY, // For example, 'AKIXXXXXXXXXXXGKUY'.
-    secretAccessKey: AWS_SECRET_ACCESS_KEY, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
-    region: REGION, // For example, 'us-east-1'.
-  });
-
-  const params = {
-    Bucket: BUCKET,
-    Key: FOLDER
-      ? `${FOLDER}/all_market_events_${loadTimestamp}.json`
-      : `all_market_events_${loadTimestamp}.json`,
-    Body: buf,
-    ACL: 'private',
-  };
-
-  bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
-    if (err) {
-      console.log('There was an error uploading your file: ', err);
-      return false;
-    }
-    console.log('Successfully uploaded file.', data);
-    return true;
-  });
+  await uploadToS3(
+    eventFilename,
+    AWS_ACCESS_KEY,
+    AWS_SECRET_ACCESS_KEY,
+    REGION,
+    BUCKET,
+    FOLDER,
+    'private',
+  );
 };
 
 main();
