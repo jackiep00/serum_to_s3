@@ -4,36 +4,21 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "declaration": true,
-
     "strict": true,
     "lib": ["dom", "dom.iterable", "esnext"],
     "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "allowJs": true,
-    // "importHelpers": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-    "rootDir": "./",
-    "outDir": "./dist",
-    "paths": {
-      "*": ["./serum/buffer-layout.d.ts"]
-    },
-    "typeRoots": [
-      "src/typings",
-      "node_modules/@types"
-    ]
-  },
-  "include": ["./src/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+    "rootDir": "src",
+    "outDir": "dist"
+  }
 }

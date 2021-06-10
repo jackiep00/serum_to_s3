@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { bits, blob, struct, u32, u8, Layout } from 'buffer-layout';
 import { accountFlagsLayout, publicKeyLayout, u128, u64, zeros } from './layout';
 import BN from 'bn.js';

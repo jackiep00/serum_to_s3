@@ -1,17 +1,5 @@
-import {
-  Account,
-  AccountInfo,
-  Commitment,
-  Connection,
-  LAMPORTS_PER_SOL,
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  TransactionInstruction,
-  TransactionSignature,
-} from '@solana/web3.js';
-import { decodeEventQueue, decodeRequestQueue } from './queue';
-import { FullEvent } from './../types';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { decodeEventQueue } from './queue';
 import { getMintDecimals, Market, MarketOptions } from '@project-serum/serum/lib/market';
 
 export class FullMarket extends Market {
