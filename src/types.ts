@@ -12,6 +12,7 @@ export type MarketMeta = {
   quoteCurrency?: string;
   _baseSplTokenDecimals?: number;
   _quoteSplTokenDecimals?: number;
+  maxSeqNum?: number;
 };
 
 export interface FullEvent extends Event {
