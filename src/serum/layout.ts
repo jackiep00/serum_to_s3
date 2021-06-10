@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { bits, Blob, Layout, u32, UInt, BitStructure } from 'buffer-layout';
 import { PublicKey } from '@solana/web3.js';
 import BN from 'bn.js';
