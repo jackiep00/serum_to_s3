@@ -21,6 +21,8 @@ export interface FullEvent extends Event {
   price: number;
   feeCost: number;
   size: number;
+  solSlotNum?: number;
+  sequenceNum?: number;
 }
 
 export type FullEventMeta = {

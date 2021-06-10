@@ -1,7 +1,9 @@
+// @ts-nocheck
 import { bits, blob, struct, u32, u8, Layout } from 'buffer-layout';
 import { accountFlagsLayout, publicKeyLayout, u128, u64, zeros } from './layout';
 import BN from 'bn.js';
 import { PublicKey } from '@solana/web3.js';
+import { FullEvent } from '../types';
 
 export interface Event {
   eventFlags: { fill: boolean; out: boolean; bid: boolean; maker: boolean };
@@ -22,6 +24,8 @@ type Header = {
     eventQueue: unknown;
     requestQueue: unknown;
   };
+  nextSeqNum?: number; // for Requests
+  seqNum?: number; // for Events
 };
 
 const REQUEST_QUEUE_HEADER = struct<Header>([
@@ -42,7 +46,7 @@ REQUEST_FLAGS.addBoolean('bid');
 REQUEST_FLAGS.addBoolean('postOnly');
 REQUEST_FLAGS.addBoolean('ioc');
 
-const REQUEST = struct<Event>([
+const REQUEST = struct<FullEvent>([
   REQUEST_FLAGS,
   u8('openOrdersSlot'),
   u8('feeTier'),
@@ -72,7 +76,7 @@ EVENT_FLAGS.addBoolean('out');
 EVENT_FLAGS.addBoolean('bid');
 EVENT_FLAGS.addBoolean('maker');
 
-const EVENT = struct<Event>([
+const EVENT = struct<FullEvent>([
   EVENT_FLAGS,
   u8('openOrdersSlot'),
   u8('feeTier'),
@@ -87,13 +91,13 @@ const EVENT = struct<Event>([
 
 function decodeQueue(
   headerLayout: Layout<Header>,
-  nodeLayout: Layout<Event>,
+  nodeLayout: Layout<FullEvent>,
   buffer: Buffer,
   history?: number,
 ) {
   const header = headerLayout.decode(buffer);
   const allocLen = Math.floor((buffer.length - headerLayout.span) / nodeLayout.span);
-  const nodes: Event[] = [];
+  const nodes: FullEvent[] = [];
 
   if (history) {
     for (let i = 0; i < Math.min(history, allocLen); ++i) {
@@ -123,13 +127,16 @@ export function decodeRequestQueue(buffer: Buffer, history?: number) {
   return nodes;
 }
 
-export function decodeEventQueue(buffer: Buffer, history?: number): Event[] {
+export function decodeEventQueue(
+  buffer: Buffer,
+  history?: number,
+): [Header, FullEvent[]] {
   const { header, nodes } = decodeQueue(EVENT_QUEUE_HEADER, EVENT, buffer, history);
   if (!header.accountFlags.initialized || !header.accountFlags.eventQueue) {
     throw new Error('Invalid events queue');
   }
 
-  return nodes;
+  return [header, nodes];
 }
 
 export const REQUEST_QUEUE_LAYOUT = {

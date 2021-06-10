@@ -1,5 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Market, MARKETS } from '@project-serum/serum';
+import { FullMarket } from './serum/fullMarket';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import {
   SOLANA_RPC_URL,
@@ -138,7 +139,7 @@ const main = async function () {
       let programID = new PublicKey(marketMeta['programId']);
 
       // Contrary to the docs - you need to pass programID as well it seems
-      let market = await Market.load(connection, marketAddress, {}, programID);
+      let market = await FullMarket.load(connection, marketAddress, {}, programID);
 
       // Ignoring the fact that we're grabbing private variables from serum.Markets
       // @ts-ignore
@@ -149,7 +150,7 @@ const main = async function () {
       console.log(marketMeta['name']);
 
       let loadTimestamp = new Date().toISOString();
-      let events: FullEvent[] = await market.loadFills(connection, 1000);
+      let events: FullEvent[] = await market.loadFillsAndContext(connection, 1000);
 
       let marketEventsLength = events.length;
       console.log(marketEventsLength);

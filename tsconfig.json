@@ -25,7 +25,14 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "rootDir": "./",
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "paths": {
+      "*": ["./serum/buffer-layout.d.ts"]
+    },
+    "typeRoots": [
+      "src/typings",
+      "node_modules/@types"
+    ]
   },
   "include": ["./src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
