@@ -14,6 +14,9 @@ import {
 import S3 from 'aws-sdk/clients/s3';
 
 const INFO_LEVEL = 'INFO';
+const TOP_MARKETS = MARKETS.filter((item) =>
+  ['xCOPE/USDC', 'ETH/USDC', 'BTC/USDC', 'RAY/USDT', 'FTT/USDT'].includes(item.name),
+);
 
 const formatEvents = async function (
   events: FullEvent[],
@@ -54,15 +57,15 @@ const formatEvents = async function (
 const main = async function () {
   const waitTime = 50;
   // Remove deprecated items
-  const active_markets: MarketMeta[] = MARKETS.filter(
+  const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
     (item, i, ar) => !item['deprecated'],
   );
 
   const all_market_events: FullEventMeta[] = [];
-  for (let i = 0; i < active_markets.length; i++) {
+  for (let i = 0; i < activeMarkets.length; i++) {
     console.log(i);
 
-    let marketMeta = active_markets[i];
+    let marketMeta = activeMarkets[i];
 
     marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
     marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
