@@ -113,7 +113,8 @@ function safeWrite(
 const main = async function () {
   let loadTimestamp = new Date().toISOString();
   const eventFilename = `output/all_market_events_${loadTimestamp}.json`;
-  const waitTime = 25;
+  const waitTime = 0;
+  const numPullsInBatch = 100;
 
   // Remove deprecated items
   const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
@@ -122,9 +123,8 @@ const main = async function () {
 
   const eventWriter = createWriteStream(eventFilename);
 
-  while (true) {
-    let all_market_events: FullEventMeta[] = [];
-
+  let all_market_events: FullEventMeta[] = [];
+  for (let iPulls = 0; iPulls < numPullsInBatch; iPulls++) {
     for (let i = 0; i < activeMarkets.length; i++) {
       console.log(i);
 
@@ -162,27 +162,20 @@ const main = async function () {
 
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
-
-    safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
-      eventWriter.end();
-    });
-
-    // writeFileSync(
-    //   // execution path expected to be the root folder
-    //   `./output/all_market_events_${loadTimestamp}.json`,
-    //   JSON.stringify(all_market_events),
-    // );
-
-    await uploadToS3(
-      eventFilename,
-      AWS_ACCESS_KEY,
-      AWS_SECRET_ACCESS_KEY,
-      REGION,
-      BUCKET,
-      FOLDER,
-      'private',
-    );
   }
+  safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
+    eventWriter.end();
+  });
+
+  await uploadToS3(
+    eventFilename,
+    AWS_ACCESS_KEY,
+    AWS_SECRET_ACCESS_KEY,
+    REGION,
+    BUCKET,
+    FOLDER,
+    'private',
+  );
 };
 
 main();
