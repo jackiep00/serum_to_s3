@@ -1,5 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Market, MARKETS } from '@project-serum/serum';
+import { FullMarket } from './serum/fullMarket';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import {
   SOLANA_RPC_URL,
@@ -9,6 +10,7 @@ import {
   FOLDER,
   BUCKET,
 } from './config';
+import { createReadStream, createWriteStream, WriteStream } from 'fs';
 
 // import { writeFileSync } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
@@ -54,84 +56,127 @@ const formatEvents = async function (
   return full_meta_events;
 };
 
+const uploadToS3 = async function (
+  fileName: string,
+  accessKeyId: string,
+  secretAccessKey: string,
+  region: string,
+  bucket_name: string,
+  folder_name: string,
+  ACL: string,
+): Promise<any> {
+  const readStream = createReadStream(fileName);
+
+  const bucket = new S3({
+    accessKeyId: accessKeyId, // For example, 'AKIXXXXXXXXXXXGKUY'.
+    secretAccessKey: secretAccessKey, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
+    region: region, // For example, 'us-east-1'.
+  });
+
+  const params = {
+    Bucket: bucket_name,
+    Key: folder_name ? `${folder_name}/${fileName}` : fileName,
+    Body: readStream,
+    ACL: ACL,
+  };
+
+  return new Promise((resolve, reject) => {
+    bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
+      readStream.destroy();
+
+      if (err) {
+        return reject(err);
+      }
+
+      return resolve(data);
+    });
+  });
+};
+
+function safeWrite(
+  writer: WriteStream,
+  encoding: BufferEncoding,
+  data: any,
+  callback: () => void,
+) {
+  function write() {
+    // try to write the object and catch the result
+    let writeSuccess = writer.write(data, encoding, callback);
+    if (!writeSuccess) {
+      // Writestream got overloaded!
+      // Drain and write some more once it drains
+      writer.once('drain', write);
+    }
+  }
+  write();
+}
+
 const main = async function () {
-  const waitTime = 50;
+  let loadTimestamp = new Date().toISOString();
+  const eventFilename = `output/all_market_events_${loadTimestamp}.json`;
+  const waitTime = 0;
+  const numPullsInBatch = 100;
+
   // Remove deprecated items
   const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
     (item, i, ar) => !item['deprecated'],
   );
 
-  const all_market_events: FullEventMeta[] = [];
-  for (let i = 0; i < activeMarkets.length; i++) {
-    console.log(i);
+  const eventWriter = createWriteStream(eventFilename);
 
-    let marketMeta = activeMarkets[i];
+  let all_market_events: FullEventMeta[] = [];
+  for (let iPulls = 0; iPulls < numPullsInBatch; iPulls++) {
+    for (let i = 0; i < activeMarkets.length; i++) {
+      console.log(i);
 
-    marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
-    marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
+      let marketMeta = activeMarkets[i];
 
-    let connection = new Connection(SOLANA_RPC_URL);
-    let marketAddress = new PublicKey(marketMeta['address']);
-    let programID = new PublicKey(marketMeta['programId']);
+      marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
+      marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
 
-    // Contrary to the docs - you need to pass programID as well it seems
-    let market = await Market.load(connection, marketAddress, {}, programID);
+      let connection = new Connection(SOLANA_RPC_URL);
+      let marketAddress = new PublicKey(marketMeta['address']);
+      let programID = new PublicKey(marketMeta['programId']);
 
-    // Ignoring the fact that we're grabbing private variables from serum.Markets
-    // @ts-ignore
-    marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
-    // @ts-ignore
-    marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
+      // Contrary to the docs - you need to pass programID as well it seems
+      let market = await FullMarket.load(connection, marketAddress, {}, programID);
 
-    console.log(marketMeta['name']);
+      // Ignoring the fact that we're grabbing private variables from serum.Markets
+      // @ts-ignore
+      marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
+      // @ts-ignore
+      marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
 
-    let loadTimestamp = new Date().toISOString();
-    let events: FullEvent[] = await market.loadFills(connection, 1000);
+      console.log(marketMeta['name']);
 
-    let marketEventsLength = events.length;
-    console.log(marketEventsLength);
+      let loadTimestamp = new Date().toISOString();
+      let events: FullEvent[] = await market.loadFillsAndContext(connection, 1000);
 
-    console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
+      let marketEventsLength = events.length;
+      console.log(marketEventsLength);
 
-    const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
+      console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
 
-    all_market_events.push(...currentMarket);
+      const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
 
-    await new Promise((resolve) => setTimeout(resolve, waitTime));
-  }
-  let loadTimestamp = new Date().toISOString();
+      all_market_events.push(...currentMarket);
 
-  // writeFileSync(
-  //   // execution path expected to be the root folder
-  //   `./output/all_market_events_${loadTimestamp}.json`,
-  //   JSON.stringify(all_market_events),
-  // );
-
-  const buf = Buffer.from(JSON.stringify(all_market_events));
-
-  const bucket = new S3({
-    accessKeyId: AWS_ACCESS_KEY, // For example, 'AKIXXXXXXXXXXXGKUY'.
-    secretAccessKey: AWS_SECRET_ACCESS_KEY, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
-    region: REGION, // For example, 'us-east-1'.
-  });
-
-  const params = {
-    Bucket: BUCKET,
-    Key: FOLDER
-      ? `${FOLDER}/all_market_events_${loadTimestamp}.json`
-      : `all_market_events_${loadTimestamp}.json`,
-    Body: buf,
-    ACL: 'private',
-  };
-
-  bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
-    if (err) {
-      console.log('There was an error uploading your file: ', err);
-      return false;
+      await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
-    console.log('Successfully uploaded file.', data);
-    return true;
+  }
+  safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
+    eventWriter.end();
   });
+
+  await uploadToS3(
+    eventFilename,
+    AWS_ACCESS_KEY,
+    AWS_SECRET_ACCESS_KEY,
+    REGION,
+    BUCKET,
+    FOLDER,
+    'private',
+  );
 };
 
 main();
