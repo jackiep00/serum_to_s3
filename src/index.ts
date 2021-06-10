@@ -11,6 +11,7 @@ import {
   BUCKET,
 } from './config';
 import { createReadStream, createWriteStream, WriteStream } from 'fs';
+import { decodeRecentEvents } from './mango/events';
 
 // import { writeFileSync } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
@@ -102,11 +103,11 @@ function safeWrite(
   function write() {
     // try to write the object and catch the result
     let writeSuccess = writer.write(data, encoding, callback);
-    if (!writeSuccess) {
-      // Writestream got overloaded!
-      // Drain and write some more once it drains
-      writer.once('drain', write);
-    }
+    // if (!writeSuccess) {
+    //   // Writestream got overloaded!
+    //   // Drain and write some more once it drains
+    //   writer.once('drain', write);
+    // }
   }
   write();
 }
@@ -150,7 +151,18 @@ const main = async function () {
       console.log(marketMeta['name']);
 
       let loadTimestamp = new Date().toISOString();
-      let events: FullEvent[] = await market.loadFillsAndContext(connection, 1000);
+      // let events: FullEvent[] = await market.loadFillsAndContext(connection, 1000);
+
+      const accountInfo = await connection.getAccountInfo(market['_decoded'].eventQueue);
+      if (accountInfo === null) {
+        throw new Error(`Event queue account for market ${marketAddress} not found`);
+      }
+      const { header, events } = decodeRecentEvents(
+        accountInfo.data,
+        marketMeta.lastSeqNum,
+      );
+
+      marketMeta.lastSeqNum = header.seqNum;
 
       let marketEventsLength = events.length;
       console.log(marketEventsLength);
