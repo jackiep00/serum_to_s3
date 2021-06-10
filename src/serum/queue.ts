@@ -5,7 +5,6 @@ import { PublicKey } from '@solana/web3.js';
 
 const REQUEST_QUEUE_HEADER = struct([
   blob(5),
-
   accountFlagsLayout('accountFlags'),
   u32('head'),
   zeros(4),
@@ -78,30 +77,42 @@ export interface Event {
   nativeFeeOrRebate: BN;
 }
 
+type Header = {
+  head: number;
+  count: number;
+  accountFlags: {
+    initialized: boolean;
+    eventQueue: unknown;
+    requestQueue: unknown;
+  };
+};
+
 function decodeQueue(
-  headerLayout: HeaderLayout,
-  nodeLayout,
+  headerLayout: Structure,
+  nodeLayout: Structure,
   buffer: Buffer,
   history?: number,
 ) {
-  const header = headerLayout.decode(buffer);
+  const header = headerLayout.decode<Header>(buffer);
   const allocLen = Math.floor((buffer.length - headerLayout.span) / nodeLayout.span);
-  const nodes: any[] = [];
+  const nodes: Event[] = [];
+
   if (history) {
     for (let i = 0; i < Math.min(history, allocLen); ++i) {
       const nodeIndex = (header.head + header.count + allocLen - 1 - i) % allocLen;
       nodes.push(
-        nodeLayout.decode(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
+        nodeLayout.decode<Event>(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
       );
     }
   } else {
     for (let i = 0; i < header.count; ++i) {
       const nodeIndex = (header.head + i) % allocLen;
       nodes.push(
-        nodeLayout.decode(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
+        nodeLayout.decode<Event>(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
       );
     }
   }
+
   return { header, nodes };
 }
 
@@ -110,6 +121,7 @@ export function decodeRequestQueue(buffer: Buffer, history?: number) {
   if (!header.accountFlags.initialized || !header.accountFlags.requestQueue) {
     throw new Error('Invalid requests queue');
   }
+
   return nodes;
 }
 
@@ -118,6 +130,7 @@ export function decodeEventQueue(buffer: Buffer, history?: number): Event[] {
   if (!header.accountFlags.initialized || !header.accountFlags.eventQueue) {
     throw new Error('Invalid events queue');
   }
+
   return nodes;
 }
 

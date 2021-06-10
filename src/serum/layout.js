@@ -122,9 +122,7 @@ class EnumLayout extends UInt {
 
   decode(b, offset) {
     const decodedValue = super.decode(b, offset);
-    const entry = Object.entries(this.values).find(
-      ([, value]) => value === decodedValue,
-    );
+    const entry = Object.entries(this.values).find(([, value]) => value === decodedValue);
     if (entry) {
       return entry[0];
     }
