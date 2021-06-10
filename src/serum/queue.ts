@@ -1,9 +1,30 @@
-import { bits, blob, struct, u32, u8 } from 'buffer-layout';
+import { bits, blob, struct, u32, u8, Layout } from 'buffer-layout';
 import { accountFlagsLayout, publicKeyLayout, u128, u64, zeros } from './layout';
 import BN from 'bn.js';
 import { PublicKey } from '@solana/web3.js';
 
-const REQUEST_QUEUE_HEADER = struct([
+export interface Event {
+  eventFlags: { fill: boolean; out: boolean; bid: boolean; maker: boolean };
+  orderId: BN;
+  openOrders: PublicKey;
+  openOrdersSlot: number;
+  feeTier: number;
+  nativeQuantityReleased: BN;
+  nativeQuantityPaid: BN;
+  nativeFeeOrRebate: BN;
+}
+
+type Header = {
+  head: number;
+  count: number;
+  accountFlags: {
+    initialized: boolean;
+    eventQueue: unknown;
+    requestQueue: unknown;
+  };
+};
+
+const REQUEST_QUEUE_HEADER = struct<Header>([
   blob(5),
   accountFlagsLayout('accountFlags'),
   u32('head'),
@@ -21,7 +42,7 @@ REQUEST_FLAGS.addBoolean('bid');
 REQUEST_FLAGS.addBoolean('postOnly');
 REQUEST_FLAGS.addBoolean('ioc');
 
-const REQUEST = struct([
+const REQUEST = struct<Event>([
   REQUEST_FLAGS,
   u8('openOrdersSlot'),
   u8('feeTier'),
@@ -33,7 +54,7 @@ const REQUEST = struct([
   u64('clientOrderId'),
 ]);
 
-const EVENT_QUEUE_HEADER = struct([
+const EVENT_QUEUE_HEADER = struct<Header>([
   blob(5),
 
   accountFlagsLayout('accountFlags'),
@@ -51,7 +72,7 @@ EVENT_FLAGS.addBoolean('out');
 EVENT_FLAGS.addBoolean('bid');
 EVENT_FLAGS.addBoolean('maker');
 
-const EVENT = struct([
+const EVENT = struct<Event>([
   EVENT_FLAGS,
   u8('openOrdersSlot'),
   u8('feeTier'),
@@ -64,36 +85,13 @@ const EVENT = struct([
   u64('clientOrderId'),
 ]);
 
-export interface Event {
-  eventFlags: { fill: boolean; out: boolean; bid: boolean; maker: boolean };
-
-  orderId: BN;
-  openOrders: PublicKey;
-  openOrdersSlot: number;
-  feeTier: number;
-
-  nativeQuantityReleased: BN;
-  nativeQuantityPaid: BN;
-  nativeFeeOrRebate: BN;
-}
-
-type Header = {
-  head: number;
-  count: number;
-  accountFlags: {
-    initialized: boolean;
-    eventQueue: unknown;
-    requestQueue: unknown;
-  };
-};
-
 function decodeQueue(
-  headerLayout: Structure,
-  nodeLayout: Structure,
+  headerLayout: Layout<Header>,
+  nodeLayout: Layout<Event>,
   buffer: Buffer,
   history?: number,
 ) {
-  const header = headerLayout.decode<Header>(buffer);
+  const header = headerLayout.decode(buffer);
   const allocLen = Math.floor((buffer.length - headerLayout.span) / nodeLayout.span);
   const nodes: Event[] = [];
 
@@ -101,14 +99,14 @@ function decodeQueue(
     for (let i = 0; i < Math.min(history, allocLen); ++i) {
       const nodeIndex = (header.head + header.count + allocLen - 1 - i) % allocLen;
       nodes.push(
-        nodeLayout.decode<Event>(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
+        nodeLayout.decode(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
       );
     }
   } else {
     for (let i = 0; i < header.count; ++i) {
       const nodeIndex = (header.head + i) % allocLen;
       nodes.push(
-        nodeLayout.decode<Event>(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
+        nodeLayout.decode(buffer, headerLayout.span + nodeIndex * nodeLayout.span),
       );
     }
   }
