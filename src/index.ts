@@ -9,7 +9,14 @@ import {
   FOLDER,
   BUCKET,
 } from './config';
-import { createReadStream, createWriteStream, WriteStream } from 'fs';
+import {
+  createReadStream,
+  createWriteStream,
+  WriteStream,
+  writeFile,
+  write,
+  appendFile,
+} from 'fs';
 import { decodeRecentEvents } from './events';
 
 // import { writeFileSync } from 'fs';
@@ -19,6 +26,34 @@ const INFO_LEVEL = 'INFO';
 const TOP_MARKETS = MARKETS.filter((item) =>
   ['xCOPE/USDC', 'ETH/USDC', 'BTC/USDC', 'RAY/USDT', 'FTT/USDT'].includes(item.name),
 );
+
+const fullEventMetaToCsv = (event: FullEventMeta): string => {
+  const result = [
+    event.address.toString() ?? '',
+    event.programId.toString() ?? '',
+    event.baseCurrency ?? '',
+    event.quoteCurrency ?? '',
+    event.isFill ?? '',
+    event.isOut ?? '',
+    event.isBid ?? '',
+    event.isMaker ?? '',
+    event.openOrdersSlot ?? '',
+    event.feeTier ?? '',
+    event.nativeQuantityRelease.toString() ?? '',
+    event.nativeQuantityPaid.toString() ?? '',
+    event.nativeFeeOrRebate.toString() ?? '',
+    event.orderId.toString() ?? '',
+    event.openOrders ?? '',
+    event.clientOrderId.toString() ?? '',
+    event.side ?? '',
+    event.price ?? '',
+    event.feeCost ?? '',
+    event.size ?? '',
+    event.loadTimestamp ?? '',
+  ];
+
+  return result.join();
+};
 
 const formatEvents = async function (
   events: FullEvent[],
@@ -113,9 +148,9 @@ function safeWrite(
 
 const main = async function () {
   let loadTimestamp = new Date().toISOString();
-  const eventFilename = `output/all_market_events_${loadTimestamp}.json`;
+  const eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
   const waitTime = 0;
-  const numPullsInBatch = 100;
+  const numPullsInBatch = 2;
 
   // Remove deprecated items
   const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
@@ -135,8 +170,8 @@ const main = async function () {
       marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
 
       let connection = new Connection(SOLANA_RPC_URL);
-      let marketAddress = new PublicKey(marketMeta['address']);
-      let programID = new PublicKey(marketMeta['programId']);
+      let marketAddress = marketMeta['address'];
+      let programID = marketMeta['programId'];
 
       // Contrary to the docs - you need to pass programID as well it seems
       let market = await Market.load(connection, marketAddress, {}, programID);
@@ -175,9 +210,22 @@ const main = async function () {
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
-  safeWrite(eventWriter, 'utf-8', JSON.stringify(all_market_events, null, 2), () => {
-    eventWriter.end();
+
+  const full_event_csv = all_market_events.map((fullEvent) => {
+    return fullEventMetaToCsv(fullEvent);
   });
+
+  for (let event_csv of full_event_csv) {
+    console.log('writing ' + event_csv);
+
+    appendFile(eventFilename, event_csv, (err) => {
+      if (err) {
+        console.log('error ' + err);
+      } else {
+        console.log('wrote ' + event_csv);
+      }
+    });
+  }
 
   await uploadToS3(
     eventFilename,
