@@ -99,7 +99,7 @@ const uploadToS3 = async function (
   bucket_name: string,
   folder_name: string,
   ACL: string,
-): Promise<any> {
+): Promise<S3.ManagedUpload.SendData> {
   const readStream = createReadStream(fileName);
 
   const bucket = new S3({
