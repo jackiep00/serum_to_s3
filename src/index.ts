@@ -18,33 +18,30 @@ const TOP_MARKETS = MARKETS.filter((item) =>
   ['xCOPE/USDC', 'ETH/USDC', 'BTC/USDC', 'RAY/USDT', 'FTT/USDT'].includes(item.name),
 );
 
-const fullEventMetaToCsv = (event: FullEventMeta): string => {
-  const result = [
-    event.address.toString() ?? '',
-    event.programId.toString() ?? '',
+const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
+  [
+    event.address.toString(),
+    event.programId.toString(),
     event.baseCurrency ?? '',
     event.quoteCurrency ?? '',
-    event.isFill ?? '',
-    event.isOut ?? '',
-    event.isBid ?? '',
-    event.isMaker ?? '',
-    event.openOrdersSlot ?? '',
-    event.feeTier ?? '',
-    event.nativeQuantityRelease.toString() ?? '',
-    event.nativeQuantityPaid.toString() ?? '',
-    event.nativeFeeOrRebate.toString() ?? '',
-    event.orderId.toString() ?? '',
-    event.openOrders ?? '',
-    event.clientOrderId.toString() ?? '',
-    event.side ?? '',
-    event.price ?? '',
-    event.feeCost ?? '',
-    event.size ?? '',
-    event.loadTimestamp ?? '',
-  ];
-
-  return result.join();
-};
+    event.isFill,
+    event.isOut,
+    event.isBid,
+    event.isMaker,
+    event.openOrdersSlot,
+    event.feeTier,
+    event.nativeQuantityRelease.toString(),
+    event.nativeQuantityPaid.toString(),
+    event.nativeFeeOrRebate.toString(),
+    event.orderId.toString(),
+    event.openOrders,
+    event.clientOrderId.toString(),
+    event.side,
+    event.price,
+    event.feeCost,
+    event.size,
+    event.loadTimestamp,
+  ].join();
 
 const formatEvents = async function (
   events: FullEvent[],
