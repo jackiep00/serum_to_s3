@@ -149,12 +149,9 @@ const main = async function () {
       marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
       // @ts-ignore
       marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
-
       console.log(marketMeta['name']);
 
       let loadTimestamp = new Date().toISOString();
-      // let events: FullEvent[] = await market.loadFillsAndContext(connection, 1000);
-
       const accountInfo = await connection.getAccountInfo(market['_decoded'].eventQueue);
       if (accountInfo === null) {
         throw new Error(`Event queue account for market ${marketAddress} not found`);
