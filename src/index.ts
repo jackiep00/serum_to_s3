@@ -1,5 +1,7 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 import { Market, MARKETS } from '@project-serum/serum';
+import S3 from 'aws-sdk/clients/s3';
+import { createReadStream, createWriteStream, appendFile } from 'fs';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import {
   SOLANA_RPC_URL,
@@ -9,18 +11,7 @@ import {
   FOLDER,
   BUCKET,
 } from './config';
-import {
-  createReadStream,
-  createWriteStream,
-  WriteStream,
-  writeFile,
-  write,
-  appendFile,
-} from 'fs';
 import { decodeRecentEvents } from './events';
-
-// import { writeFileSync } from 'fs';
-import S3 from 'aws-sdk/clients/s3';
 
 const INFO_LEVEL = 'INFO';
 const TOP_MARKETS = MARKETS.filter((item) =>
