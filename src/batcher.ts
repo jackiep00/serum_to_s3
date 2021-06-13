@@ -1,7 +1,7 @@
 import { statSync, createReadStream } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
 
-const BATCH_FILESIZE_MB = 50;
+const BATCH_FILESIZE_MB = 0.5;
 
 const uploadToS3 = async function (
   fileName: string,
@@ -12,6 +12,9 @@ const uploadToS3 = async function (
   folder_name: string,
   ACL: string,
 ): Promise<any> {
+  console.log('Upload to S3 being attempted');
+  console.log(`Trying to upload ${fileName}`);
+
   const readStream = createReadStream(fileName);
 
   const bucket = new S3({
@@ -52,18 +55,23 @@ export async function batchUploadtoS3(
   folder_name: string,
   ACL: string,
 ): Promise<string> {
+  console.log(`Checking filesize of ${workingFilename}`);
   const stats = statSync(workingFilename);
   const fileSizeMB = stats.size / (1024 * 1024);
 
   if (fileSizeMB > BATCH_FILESIZE_MB) {
-    await uploadToS3(
-      workingFilename,
-      accessKeyId,
-      secretAccessKey,
-      region,
-      bucket_name,
-      folder_name,
-      ACL,
+    // write the filename to a new const so it doesn't get overwritten during the async
+    const uploadFilename = workingFilename;
+    console.log(
+      await uploadToS3(
+        uploadFilename,
+        accessKeyId,
+        secretAccessKey,
+        region,
+        bucket_name,
+        folder_name,
+        ACL,
+      ),
     );
     let loadTimestamp = new Date().toISOString();
     return `${filenameTemplate}${loadTimestamp}.csv`;

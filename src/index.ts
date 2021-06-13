@@ -44,6 +44,21 @@ const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
     event.loadTimestamp,
   ].join();
 
+const writeEventsToCSV = function (events: FullEventMeta[], eventFilename: string) {
+  for (let event of events) {
+    const event_csv = convertFullEventMetaToCsv(event);
+    // console.log('writing ' + event_csv);
+
+    appendFile(eventFilename, event_csv, (err) => {
+      if (err) {
+        console.log('error ' + err);
+      } else {
+        // console.log('wrote ' + event_csv);
+      }
+    });
+  }
+};
+
 const formatEvents = async function (
   events: FullEvent[],
   marketMeta: MarketMeta,
@@ -80,59 +95,58 @@ const formatEvents = async function (
   return fullMetaEvents;
 };
 
-const uploadToS3 = async function (
-  fileName: string,
-  accessKeyId: string,
-  secretAccessKey: string,
-  region: string,
-  bucket_name: string,
-  folder_name: string,
-  ACL: string,
-): Promise<S3.ManagedUpload.SendData> {
-  const readStream = createReadStream(fileName);
+// const uploadToS3 = async function (
+//   fileName: string,
+//   accessKeyId: string,
+//   secretAccessKey: string,
+//   region: string,
+//   bucket_name: string,
+//   folder_name: string,
+//   ACL: string,
+// ): Promise<S3.ManagedUpload.SendData> {
+//   const readStream = createReadStream(fileName);
 
-  const bucket = new S3({
-    accessKeyId: accessKeyId, // For example, 'AKIXXXXXXXXXXXGKUY'.
-    secretAccessKey: secretAccessKey, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
-    region: region, // For example, 'us-east-1'.
-  });
+//   const bucket = new S3({
+//     accessKeyId: accessKeyId, // For example, 'AKIXXXXXXXXXXXGKUY'.
+//     secretAccessKey: secretAccessKey, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
+//     region: region, // For example, 'us-east-1'.
+//   });
 
-  const params = {
-    Bucket: bucket_name,
-    Key: folder_name ? `${folder_name}/${fileName}` : fileName,
-    Body: readStream,
-    ACL: ACL,
-  };
+//   const params = {
+//     Bucket: bucket_name,
+//     Key: folder_name ? `${folder_name}/${fileName}` : fileName,
+//     Body: readStream,
+//     ACL: ACL,
+//   };
 
-  return new Promise((resolve, reject) => {
-    bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
-      readStream.destroy();
+//   return new Promise((resolve, reject) => {
+//     bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
+//       readStream.destroy();
 
-      if (err) {
-        return reject(err);
-      }
+//       if (err) {
+//         return reject(err);
+//       }
 
-      return resolve(data);
-    });
-  });
-};
+//       return resolve(data);
+//     });
+//   });
+// };
 
 const main = async function () {
   let loadTimestamp = new Date().toISOString();
-  const eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
+  let eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
+  const filenameTemplate = 'output/all_market_events_';
   const waitTime = 0;
-  const numPullsInBatch = 2;
+  const numPullsInBatch = 75;
 
   // Remove deprecated items
-  const activeMarkets: MarketMeta[] = TOP_MARKETS.filter((item) => !item['deprecated']);
+  const activeMarkets: MarketMeta[] = MARKETS.filter((item) => !item['deprecated']);
 
   createWriteStream(eventFilename);
 
   let all_market_events: FullEventMeta[] = [];
   for (let iPulls = 0; iPulls < numPullsInBatch; iPulls++) {
     for (let i = 0; i < activeMarkets.length; i++) {
-      console.log(i);
-
       let marketMeta = activeMarkets[i];
 
       marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
@@ -150,7 +164,7 @@ const main = async function () {
       marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
       // @ts-ignore
       marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
-      console.log(marketMeta['name']);
+      // console.log(marketMeta['name']);
 
       let loadTimestamp = new Date().toISOString();
       const accountInfo = await connection.getAccountInfo(market['_decoded'].eventQueue);
@@ -165,43 +179,57 @@ const main = async function () {
       marketMeta.lastSeqNum = header.seqNum;
 
       let marketEventsLength = events.length;
-      console.log(marketEventsLength);
+      // console.log(marketEventsLength);
 
-      console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
+      // console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
 
       const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
 
-      all_market_events.push(...currentMarket);
+      // all_market_events.push(...currentMarket);
+
+      writeEventsToCSV(currentMarket, eventFilename);
+
+      eventFilename = await batchUploadtoS3(
+        eventFilename,
+        filenameTemplate,
+        AWS_ACCESS_KEY,
+        AWS_SECRET_ACCESS_KEY,
+        REGION,
+        BUCKET,
+        FOLDER,
+        'private',
+      );
 
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
 
-  const full_event_csv = all_market_events.map((fullEvent) =>
-    convertFullEventMetaToCsv(fullEvent),
-  );
+  // const full_event_csv = all_market_events.map((fullEvent) =>
+  //   convertFullEventMetaToCsv(fullEvent),
+  // );
 
-  for (let event_csv of full_event_csv) {
-    console.log('writing ' + event_csv);
+  // for (let event_csv of full_event_csv) {
+  //   console.log('writing ' + event_csv);
 
-    appendFile(eventFilename, event_csv, (err) => {
-      if (err) {
-        console.log('error ' + err);
-      } else {
-        console.log('wrote ' + event_csv);
-      }
-    });
-  }
+  //   appendFile(eventFilename, event_csv, (err) => {
+  //     if (err) {
+  //       console.log('error ' + err);
+  //     } else {
+  //       console.log('wrote ' + event_csv);
+  //     }
+  //   });
+  // }
 
-  await uploadToS3(
-    eventFilename,
-    AWS_ACCESS_KEY,
-    AWS_SECRET_ACCESS_KEY,
-    REGION,
-    BUCKET,
-    FOLDER,
-    'private',
-  );
+  // eventFilename = await batchUploadtoS3(
+  //   eventFilename,
+  //   filenameTemplate,
+  //   AWS_ACCESS_KEY,
+  //   AWS_SECRET_ACCESS_KEY,
+  //   REGION,
+  //   BUCKET,
+  //   FOLDER,
+  //   'private',
+  // );
 };
 
 main();
