@@ -18,6 +18,7 @@ import {
   appendFile,
 } from 'fs';
 import { decodeRecentEvents } from './events';
+import { batchUploadtoS3 } from './batcher';
 
 // import { writeFileSync } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
@@ -127,24 +128,6 @@ const uploadToS3 = async function (
     });
   });
 };
-
-function safeWrite(
-  writer: WriteStream,
-  encoding: BufferEncoding,
-  data: any,
-  callback: () => void,
-) {
-  function write() {
-    // try to write the object and catch the result
-    let writeSuccess = writer.write(data, encoding, callback);
-    // if (!writeSuccess) {
-    //   // Writestream got overloaded!
-    //   // Drain and write some more once it drains
-    //   writer.once('drain', write);
-    // }
-  }
-  write();
-}
 
 const main = async function () {
   let loadTimestamp = new Date().toISOString();
