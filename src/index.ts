@@ -1,5 +1,7 @@
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection } from '@solana/web3.js';
 import { Market, MARKETS } from '@project-serum/serum';
+import S3 from 'aws-sdk/clients/s3';
+import { createReadStream, createWriteStream, appendFile } from 'fs';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import {
   SOLANA_RPC_URL,
@@ -9,61 +11,47 @@ import {
   FOLDER,
   BUCKET,
 } from './config';
-import {
-  createReadStream,
-  createWriteStream,
-  WriteStream,
-  writeFile,
-  write,
-  appendFile,
-} from 'fs';
 import { decodeRecentEvents } from './events';
 import { batchUploadtoS3 } from './batcher';
-
-// import { writeFileSync } from 'fs';
-import S3 from 'aws-sdk/clients/s3';
 
 const INFO_LEVEL = 'INFO';
 const TOP_MARKETS = MARKETS.filter((item) =>
   ['xCOPE/USDC', 'ETH/USDC', 'BTC/USDC', 'RAY/USDT', 'FTT/USDT'].includes(item.name),
 );
 
-const fullEventMetaToCsv = (event: FullEventMeta): string => {
-  const result = [
-    event.address.toString() ?? '',
-    event.programId.toString() ?? '',
+const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
+  [
+    event.address.toString(),
+    event.programId.toString(),
     event.baseCurrency ?? '',
     event.quoteCurrency ?? '',
-    event.isFill ?? '',
-    event.isOut ?? '',
-    event.isBid ?? '',
-    event.isMaker ?? '',
-    event.openOrdersSlot ?? '',
-    event.feeTier ?? '',
-    event.nativeQuantityRelease.toString() ?? '',
-    event.nativeQuantityPaid.toString() ?? '',
-    event.nativeFeeOrRebate.toString() ?? '',
-    event.orderId.toString() ?? '',
-    event.openOrders ?? '',
-    event.clientOrderId.toString() ?? '',
-    event.side ?? '',
-    event.price ?? '',
-    event.feeCost ?? '',
-    event.size ?? '',
-    event.loadTimestamp ?? '',
-  ];
-
-  return result.join();
-};
+    event.isFill,
+    event.isOut,
+    event.isBid,
+    event.isMaker,
+    event.openOrdersSlot,
+    event.feeTier,
+    event.nativeQuantityRelease.toString(),
+    event.nativeQuantityPaid.toString(),
+    event.nativeFeeOrRebate.toString(),
+    event.orderId.toString(),
+    event.openOrders,
+    event.clientOrderId.toString(),
+    event.side,
+    event.price,
+    event.feeCost,
+    event.size,
+    event.loadTimestamp,
+  ].join();
 
 const formatEvents = async function (
   events: FullEvent[],
   marketMeta: MarketMeta,
   loadTimestamp: string,
 ): Promise<FullEventMeta[]> {
-  const full_meta_events: FullEventMeta[] = [];
+  const fullMetaEvents: FullEventMeta[] = [];
   for (const event of events) {
-    const full_meta_event: FullEventMeta = {
+    const fullMetaEvent: FullEventMeta = {
       address: marketMeta['address'],
       programId: marketMeta['programId'],
       baseCurrency: marketMeta['baseCurrency'],
@@ -86,10 +74,10 @@ const formatEvents = async function (
       size: event.size,
       loadTimestamp: loadTimestamp,
     };
-    full_meta_events.push(full_meta_event);
+    fullMetaEvents.push(fullMetaEvent);
   }
 
-  return full_meta_events;
+  return fullMetaEvents;
 };
 
 const uploadToS3 = async function (
@@ -100,7 +88,7 @@ const uploadToS3 = async function (
   bucket_name: string,
   folder_name: string,
   ACL: string,
-): Promise<any> {
+): Promise<S3.ManagedUpload.SendData> {
   const readStream = createReadStream(fileName);
 
   const bucket = new S3({
@@ -136,11 +124,9 @@ const main = async function () {
   const numPullsInBatch = 2;
 
   // Remove deprecated items
-  const activeMarkets: MarketMeta[] = TOP_MARKETS.filter(
-    (item, i, ar) => !item['deprecated'],
-  );
+  const activeMarkets: MarketMeta[] = TOP_MARKETS.filter((item) => !item['deprecated']);
 
-  const eventWriter = createWriteStream(eventFilename);
+  createWriteStream(eventFilename);
 
   let all_market_events: FullEventMeta[] = [];
   for (let iPulls = 0; iPulls < numPullsInBatch; iPulls++) {
@@ -164,12 +150,9 @@ const main = async function () {
       marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
       // @ts-ignore
       marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
-
       console.log(marketMeta['name']);
 
       let loadTimestamp = new Date().toISOString();
-      // let events: FullEvent[] = await market.loadFillsAndContext(connection, 1000);
-
       const accountInfo = await connection.getAccountInfo(market['_decoded'].eventQueue);
       if (accountInfo === null) {
         throw new Error(`Event queue account for market ${marketAddress} not found`);
@@ -194,9 +177,9 @@ const main = async function () {
     }
   }
 
-  const full_event_csv = all_market_events.map((fullEvent) => {
-    return fullEventMetaToCsv(fullEvent);
-  });
+  const full_event_csv = all_market_events.map((fullEvent) =>
+    convertFullEventMetaToCsv(fullEvent),
+  );
 
   for (let event_csv of full_event_csv) {
     console.log('writing ' + event_csv);
