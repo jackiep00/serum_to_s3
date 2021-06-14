@@ -1,6 +1,6 @@
 import { Connection } from '@solana/web3.js';
 import { Market, MARKETS } from '@project-serum/serum';
-import { appendFile, createWriteStream, access } from 'fs';
+import { appendFile, readFileSync, readFile, access, writeFile } from 'fs';
 import {
   SOLANA_RPC_URL,
   AWS_ACCESS_KEY,
@@ -8,6 +8,7 @@ import {
   REGION,
   FOLDER,
   BUCKET,
+  BATCH_FILENAME,
 } from './config';
 import { MarketMeta, FullEventMeta, FullEvent } from './types';
 import { decodeRecentEvents } from './events';
@@ -91,10 +92,12 @@ const formatEvents = async function (
   return fullMetaEvents;
 };
 
+// the function supports having a target write filename, but
+// by default, use
 export async function pullAndSaveSerumEventsToCSV(
   targetMarket: MarketMeta,
-  fileName: string,
-  filenameTemplate: string,
+  fileName: string = readFileSync(BATCH_FILENAME, { encoding: 'utf8', flag: 'r' }),
+  filenameTemplate: string = 'output/all_market_events_',
 ): Promise<void> {
   // write the new seqNum
   // write events to a target CSV
@@ -102,7 +105,7 @@ export async function pullAndSaveSerumEventsToCSV(
   let marketMeta = targetMarket;
 
   // check the file for the last seqNum - if there isn't a file then write one with the seqNum we get back
-  const marketFileName = `./pipeline/${marketMeta['address'].toString()}.json`;
+  const marketFileName = `./pipeline/${marketMeta['address'].toString()}_seqnum.json`;
   access(marketFileName, (err) => {
     if (err) {
       console.log(
@@ -112,8 +115,12 @@ export async function pullAndSaveSerumEventsToCSV(
       );
       return;
     }
-    // TODO: import SeqNum file here
-    // TODO: write LastSeqNum to MarketMeta
+    // Read LastSeqNum file
+    readFile(marketFileName, 'utf-8', (err, data) => {
+      if (err) throw err;
+
+      marketMeta.lastSeqNum = JSON.parse(data);
+    });
   });
 
   marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
@@ -141,9 +148,13 @@ export async function pullAndSaveSerumEventsToCSV(
   // pull the events since the last seqNum
   const { header, events } = decodeRecentEvents(accountInfo.data, marketMeta.lastSeqNum);
 
+  // write the new seqNum into marketMeta and the seqNum file
   marketMeta.lastSeqNum = header.seqNum;
+  writeFile(marketFileName, JSON.stringify(header.seqNum), 'utf-8', (err) => {
+    if (err) throw err;
+  });
 
-  let marketEventsLength = events.length;
+  // let marketEventsLength = events.length;
   // console.log(marketEventsLength);
 
   // console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
