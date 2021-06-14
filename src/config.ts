@@ -29,4 +29,4 @@ export const BUCKET = process.env.BUCKET
 
 export const FOLDER = process.env.FOLDER ? process.env.FOLDER : '';
 
-export const pipelineTemplate = 'pipeline/';
+export const BATCH_FILENAME = `pipeline/batchFilename.json`;
