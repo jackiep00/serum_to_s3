@@ -46,7 +46,7 @@ const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
 
 const writeEventsToCSV = function (events: FullEventMeta[], eventFilename: string) {
   for (let event of events) {
-    const event_csv = convertFullEventMetaToCsv(event);
+    const event_csv = convertFullEventMetaToCsv(event) + '\n';
     // console.log('writing ' + event_csv);
 
     appendFile(eventFilename, event_csv, (err) => {
