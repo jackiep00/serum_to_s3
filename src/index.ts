@@ -12,7 +12,7 @@ import {
   BUCKET,
 } from './config';
 import { decodeRecentEvents } from './events';
-import { batchUploadtoS3 } from './batcher';
+import { batchUploadtoS3 } from './batch_upload';
 
 const INFO_LEVEL = 'INFO';
 const TOP_MARKETS = MARKETS.filter((item) =>
@@ -95,43 +95,6 @@ const formatEvents = async function (
   return fullMetaEvents;
 };
 
-// const uploadToS3 = async function (
-//   fileName: string,
-//   accessKeyId: string,
-//   secretAccessKey: string,
-//   region: string,
-//   bucket_name: string,
-//   folder_name: string,
-//   ACL: string,
-// ): Promise<S3.ManagedUpload.SendData> {
-//   const readStream = createReadStream(fileName);
-
-//   const bucket = new S3({
-//     accessKeyId: accessKeyId, // For example, 'AKIXXXXXXXXXXXGKUY'.
-//     secretAccessKey: secretAccessKey, // For example, 'm+XXXXXXXXXXXXXXXXXXXXXXDDIajovY+R0AGR'.
-//     region: region, // For example, 'us-east-1'.
-//   });
-
-//   const params = {
-//     Bucket: bucket_name,
-//     Key: folder_name ? `${folder_name}/${fileName}` : fileName,
-//     Body: readStream,
-//     ACL: ACL,
-//   };
-
-//   return new Promise((resolve, reject) => {
-//     bucket.upload(params, function (err: Error, data: S3.ManagedUpload.SendData) {
-//       readStream.destroy();
-
-//       if (err) {
-//         return reject(err);
-//       }
-
-//       return resolve(data);
-//     });
-//   });
-// };
-
 const main = async function () {
   let loadTimestamp = new Date().toISOString();
   let eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
@@ -203,33 +166,6 @@ const main = async function () {
       await new Promise((resolve) => setTimeout(resolve, waitTime));
     }
   }
-
-  // const full_event_csv = all_market_events.map((fullEvent) =>
-  //   convertFullEventMetaToCsv(fullEvent),
-  // );
-
-  // for (let event_csv of full_event_csv) {
-  //   console.log('writing ' + event_csv);
-
-  //   appendFile(eventFilename, event_csv, (err) => {
-  //     if (err) {
-  //       console.log('error ' + err);
-  //     } else {
-  //       console.log('wrote ' + event_csv);
-  //     }
-  //   });
-  // }
-
-  // eventFilename = await batchUploadtoS3(
-  //   eventFilename,
-  //   filenameTemplate,
-  //   AWS_ACCESS_KEY,
-  //   AWS_SECRET_ACCESS_KEY,
-  //   REGION,
-  //   BUCKET,
-  //   FOLDER,
-  //   'private',
-  // );
 };
 
 main();
