@@ -27,7 +27,6 @@
   "dependencies": {
     "@project-serum/serum": "^0.13.38",
     "@solana/web3.js": "^1.17.0",
-    "@types/node-cron": "^2.0.3",
     "aws-sdk": "^2.924.0",
     "buffer-layout": "^1.2.1",
     "dotenv": "^10.0.0",
@@ -35,6 +34,7 @@
   },
   "devDependencies": {
     "@types/bn.js": "^5.1.0",
+    "@types/node-cron": "^2.0.3",
     "@types/node": "^15.12.2",
     "ts-node": "^10.0.0",
     "ts-node-dev": "^1.1.6",
