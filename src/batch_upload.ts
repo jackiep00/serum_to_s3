@@ -80,28 +80,3 @@ export async function batchUploadtoS3(
   }
   return workingFilename;
 }
-
-export async function batchUploadtoS3Manager(): Promise<void> {
-  let loadTimestamp = new Date().toISOString();
-  let eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
-
-  writeFile(BATCH_FILENAME, eventFilename, 'utf-8', (err) => {
-    if (err) throw err;
-  });
-
-  let test_result = readFileSync(BATCH_FILENAME);
-
-  console.log(test_result.toString());
-
-  // should this part of the code really be in charge of uploading?
-  fileName = await batchUploadtoS3(
-    fileName,
-    filenameTemplate,
-    AWS_ACCESS_KEY,
-    AWS_SECRET_ACCESS_KEY,
-    REGION,
-    BUCKET,
-    FOLDER,
-    'private',
-  );
-}
