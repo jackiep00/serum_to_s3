@@ -164,15 +164,4 @@ export async function pullAndSaveSerumEventsToCSV(
   // all_market_events.push(...currentMarket);
 
   writeEventsToCSV(currentMarket, fileName);
-
-  fileName = await batchUploadtoS3(
-    fileName,
-    filenameTemplate,
-    AWS_ACCESS_KEY,
-    AWS_SECRET_ACCESS_KEY,
-    REGION,
-    BUCKET,
-    FOLDER,
-    'private',
-  );
 }
