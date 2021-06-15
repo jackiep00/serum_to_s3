@@ -56,8 +56,9 @@ export async function batchUploadtoS3(
   ACL: string,
 ): Promise<string> {
   console.log(`Checking filesize of ${workingFilename}`);
-  const stats = statSync(workingFilename);
-  const fileSizeMB = stats.size / (1024 * 1024);
+  const stats = statSync(workingFilename, { throwIfNoEntry: false });
+  // returns undefined if the file does not exist
+  const fileSizeMB = stats ? stats.size / (1024 * 1024) : 0;
 
   if (fileSizeMB > BATCH_FILESIZE_MB) {
     // write the filename to a new const so it doesn't get overwritten during the async
