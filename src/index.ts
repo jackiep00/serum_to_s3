@@ -1,7 +1,6 @@
 import { Connection } from '@solana/web3.js';
 import { Market, MARKETS } from '@project-serum/serum';
-import S3 from 'aws-sdk/clients/s3';
-import { createReadStream, createWriteStream, appendFile } from 'fs';
+import { createWriteStream, appendFile } from 'fs';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import {
   SOLANA_RPC_URL,
@@ -13,11 +12,6 @@ import {
 } from './config';
 import { decodeRecentEvents } from './events';
 import { batchUploadtoS3 } from './batch_upload';
-
-const INFO_LEVEL = 'INFO';
-const TOP_MARKETS = MARKETS.filter((item) =>
-  ['xCOPE/USDC', 'ETH/USDC', 'BTC/USDC', 'RAY/USDT', 'FTT/USDT'].includes(item.name),
-);
 
 const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
   [
@@ -45,7 +39,7 @@ const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
   ].join();
 
 const writeEventsToCSV = function (events: FullEventMeta[], eventFilename: string) {
-  for (let event of events) {
+  for (const event of events) {
     const event_csv = convertFullEventMetaToCsv(event) + '\n';
     // console.log('writing ' + event_csv);
 
