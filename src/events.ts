@@ -1,5 +1,4 @@
-import BN from 'bn.js';
-import { bits, blob, struct, u8, u32, nu64 } from 'buffer-layout';
+import { bits, blob, struct, u8, u32 } from 'buffer-layout';
 import {
   accountFlagsLayout,
   publicKeyLayout,
@@ -7,6 +6,7 @@ import {
   u64,
   zeros,
 } from '@project-serum/serum/lib/layout';
+import { FullEvent } from './types';
 
 interface EventQueueHeader {
   head: number;
@@ -31,7 +31,7 @@ EVENT_FLAGS.addBoolean('out');
 EVENT_FLAGS.addBoolean('bid');
 EVENT_FLAGS.addBoolean('maker');
 
-const EVENT = struct([
+const EVENT = struct<FullEvent>([
   EVENT_FLAGS,
   u8('openOrdersSlot'),
   u8('feeTier'),
@@ -46,7 +46,7 @@ const EVENT = struct([
 
 export function decodeRecentEvents(buffer: Buffer, lastSeenSeqNum?: number) {
   const header = EVENT_QUEUE_HEADER.decode(buffer);
-  const events: any[] = [];
+  const events: FullEvent[] = [];
 
   if (lastSeenSeqNum !== undefined) {
     const allocLen = Math.floor((buffer.length - EVENT_QUEUE_HEADER.span) / EVENT.span);

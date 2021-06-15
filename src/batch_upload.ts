@@ -1,5 +1,6 @@
 import { statSync, createReadStream } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
+import { logger } from './utils';
 
 const BATCH_FILESIZE_MB = 0.5;
 
@@ -11,7 +12,7 @@ const uploadToS3 = async function (
   bucket_name: string,
   folder_name: string,
   ACL: string,
-): Promise<any> {
+): Promise<S3.ManagedUpload.SendData> {
   console.log('Upload to S3 being attempted');
   console.log(`Trying to upload ${fileName}`);
 
@@ -55,7 +56,7 @@ export async function batchUploadtoS3(
   folder_name: string,
   ACL: string,
 ): Promise<string> {
-  console.log(`Checking filesize of ${workingFilename}`);
+  logger.info(`Checking filesize of ${workingFilename}`);
   const stats = statSync(workingFilename, { throwIfNoEntry: false });
   // returns undefined if the file does not exist
   const fileSizeMB = stats ? stats.size / (1024 * 1024) : 0;
