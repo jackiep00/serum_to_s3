@@ -59,11 +59,11 @@ const writeEventsToCSV = function (events: FullEventMeta[], eventFilename: strin
   }
 };
 
-const formatEvents = async function (
+const formatEvents = function (
   events: FullEvent[],
   marketMeta: MarketMeta,
   loadTimestamp: string,
-): Promise<FullEventMeta[]> {
+): FullEventMeta[] {
   const fullMetaEvents: FullEventMeta[] = [];
   for (const event of events) {
     const fullMetaEvent: FullEventMeta = {
@@ -140,16 +140,7 @@ const main = async function () {
       );
 
       marketMeta.lastSeqNum = header.seqNum;
-
-      let marketEventsLength = events.length;
-      // console.log(marketEventsLength);
-
-      // console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
-
-      const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
-
-      // all_market_events.push(...currentMarket);
-
+      const currentMarket = formatEvents(events, marketMeta, loadTimestamp);
       writeEventsToCSV(currentMarket, eventFilename);
 
       eventFilename = await batchUploadtoS3(
