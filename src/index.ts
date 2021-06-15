@@ -90,7 +90,7 @@ const formatEvents = function (
 };
 
 const main = async function () {
-  let loadTimestamp = new Date().toISOString();
+  const loadTimestamp = new Date().toISOString();
   let eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
   const filenameTemplate = 'output/all_market_events_';
   const waitTime = 0;
@@ -98,42 +98,41 @@ const main = async function () {
 
   // Remove deprecated items
   const activeMarkets: MarketMeta[] = MARKETS.filter((item) => !item['deprecated']);
-
   createWriteStream(eventFilename);
 
-  let all_market_events: FullEventMeta[] = [];
+  /* Perform numPullsInBatch pulls for each of the activeMarkets */
   for (let iPulls = 0; iPulls < numPullsInBatch; iPulls++) {
     for (let i = 0; i < activeMarkets.length; i++) {
-      let marketMeta = activeMarkets[i];
+      const marketMeta = activeMarkets[i];
+      const connection = new Connection(SOLANA_RPC_URL);
+      const market = await Market.load(
+        connection,
+        marketMeta['address'],
+        {},
+        marketMeta['programId'],
+      );
 
+      // @ts-ignore ~ ignore typescript errors re private variables
+      marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
+      // @ts-ignore ~ ignore typescript errors re private variables
+      marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
       marketMeta['baseCurrency'] = marketMeta['name'].split('/')[0];
       marketMeta['quoteCurrency'] = marketMeta['name'].split('/')[1];
 
-      let connection = new Connection(SOLANA_RPC_URL);
-      let marketAddress = marketMeta['address'];
-      let programID = marketMeta['programId'];
-
-      // Contrary to the docs - you need to pass programID as well it seems
-      let market = await Market.load(connection, marketAddress, {}, programID);
-
-      // Ignoring the fact that we're grabbing private variables from serum.Markets
-      // @ts-ignore
-      marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
-      // @ts-ignore
-      marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
-      // console.log(marketMeta['name']);
-
-      let loadTimestamp = new Date().toISOString();
       const accountInfo = await connection.getAccountInfo(market['_decoded'].eventQueue);
-      if (accountInfo === null) {
-        throw new Error(`Event queue account for market ${marketAddress} not found`);
+      if (!accountInfo) {
+        throw new Error(
+          `Event queue account for market ${marketMeta['address']} not found`,
+        );
       }
+
       const { header, events } = decodeRecentEvents(
         accountInfo.data,
         marketMeta.lastSeqNum,
       );
 
       marketMeta.lastSeqNum = header.seqNum;
+      const loadTimestamp = new Date().toISOString();
       const currentMarket = formatEvents(events, marketMeta, loadTimestamp);
       writeEventsToCSV(currentMarket, eventFilename);
 
