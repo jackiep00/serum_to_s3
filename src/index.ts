@@ -12,6 +12,7 @@ import {
 } from './config';
 import { decodeRecentEvents } from './events';
 import { batchUploadtoS3 } from './batch_upload';
+import { logger } from './utils';
 
 const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
   [
@@ -90,6 +91,7 @@ const formatEvents = function (
 };
 
 const main = async function () {
+  logger.info('Starting app');
   const loadTimestamp = new Date().toISOString();
   let eventFilename = `output/all_market_events_${loadTimestamp}.csv`;
   const filenameTemplate = 'output/all_market_events_';
@@ -100,6 +102,7 @@ const main = async function () {
   const activeMarkets: MarketMeta[] = MARKETS.filter((item) => !item['deprecated']);
   createWriteStream(eventFilename);
 
+  logger.info('Pulling market data');
   /* Perform numPullsInBatch pulls for each of the activeMarkets */
   for (let iPulls = 0; iPulls < numPullsInBatch; iPulls++) {
     for (let i = 0; i < activeMarkets.length; i++) {
