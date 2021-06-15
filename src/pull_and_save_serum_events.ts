@@ -1,104 +1,16 @@
 import { Connection } from '@solana/web3.js';
-import { Market, MARKETS } from '@project-serum/serum';
-import { appendFile, readFileSync, readFile, access, writeFile } from 'fs';
-import {
-  SOLANA_RPC_URL,
-  AWS_ACCESS_KEY,
-  AWS_SECRET_ACCESS_KEY,
-  REGION,
-  FOLDER,
-  BUCKET,
-  BATCH_FILENAME,
-} from './config';
-import { MarketMeta, FullEventMeta, FullEvent } from './types';
+import { Market } from '@project-serum/serum';
+import { readFileSync, readFile, access, writeFile } from 'fs';
+import { SOLANA_RPC_URL, BATCH_FILENAME } from './config';
+import { MarketMeta } from './types';
 import { decodeRecentEvents } from './events';
-import { batchUploadtoS3 } from './batch_upload';
+import { formatEvents, writeEventsToCSV } from './scraper';
 
-// for a given market and filename:
-
-const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
-  [
-    event.address.toString(),
-    event.programId.toString(),
-    event.baseCurrency ?? '',
-    event.quoteCurrency ?? '',
-    event.isFill,
-    event.isOut,
-    event.isBid,
-    event.isMaker,
-    event.openOrdersSlot,
-    event.feeTier,
-    event.nativeQuantityRelease.toString(),
-    event.nativeQuantityPaid.toString(),
-    event.nativeFeeOrRebate.toString(),
-    event.orderId.toString(),
-    event.openOrders,
-    event.clientOrderId.toString(),
-    event.side,
-    event.price,
-    event.feeCost,
-    event.size,
-    event.loadTimestamp,
-  ].join();
-
-const writeEventsToCSV = function (events: FullEventMeta[], eventFilename: string) {
-  for (let event of events) {
-    const event_csv = convertFullEventMetaToCsv(event) + '\n';
-    // console.log('writing ' + event_csv);
-
-    appendFile(eventFilename, event_csv, (err) => {
-      if (err) {
-        console.log('error ' + err);
-      } else {
-        // console.log('wrote ' + event_csv);
-      }
-    });
-  }
-};
-
-const formatEvents = async function (
-  events: FullEvent[],
-  marketMeta: MarketMeta,
-  loadTimestamp: string,
-): Promise<FullEventMeta[]> {
-  const fullMetaEvents: FullEventMeta[] = [];
-  for (const event of events) {
-    const fullMetaEvent: FullEventMeta = {
-      address: marketMeta['address'],
-      programId: marketMeta['programId'],
-      baseCurrency: marketMeta['baseCurrency'],
-      quoteCurrency: marketMeta['quoteCurrency'],
-      isFill: event.eventFlags['fill'] ? true : false,
-      isOut: event.eventFlags['out'] ? true : false,
-      isBid: event.eventFlags['bid'] ? true : false,
-      isMaker: event.eventFlags['maker'] ? true : false,
-      openOrdersSlot: event.openOrdersSlot,
-      feeTier: event.feeTier,
-      nativeQuantityRelease: event.nativeQuantityReleased,
-      nativeQuantityPaid: event.nativeQuantityPaid,
-      nativeFeeOrRebate: event.nativeFeeOrRebate,
-      orderId: event.orderId,
-      openOrders: event.openOrders,
-      clientOrderId: event.clientOrderId,
-      side: event.side,
-      price: event.price,
-      feeCost: event.feeCost,
-      size: event.size,
-      loadTimestamp: loadTimestamp,
-    };
-    fullMetaEvents.push(fullMetaEvent);
-  }
-
-  return fullMetaEvents;
-};
-
-// the function supports having a target write filename, but
-// by default, use
-export async function pullAndSaveSerumEventsToCSV(
+export const pullAndSaveSerumEventsToCSV = async (
   targetMarket: MarketMeta,
   fileName: string = readFileSync(BATCH_FILENAME, { encoding: 'utf8', flag: 'r' }),
   filenameTemplate: string = 'output/all_market_events_',
-): Promise<void> {
+): Promise<void> => {
   // write the new seqNum
   // write events to a target CSV
 
@@ -129,16 +41,12 @@ export async function pullAndSaveSerumEventsToCSV(
   let connection = new Connection(SOLANA_RPC_URL);
   let marketAddress = marketMeta['address'];
   let programID = marketMeta['programId'];
-
-  // Contrary to the docs - you need to pass programID as well it seems
   let market = await Market.load(connection, marketAddress, {}, programID);
 
-  // Ignoring the fact that we're grabbing private variables from serum.Markets
   // @ts-ignore
   marketMeta['_baseSplTokenDecimals'] = market._baseSplTokenDecimals;
   // @ts-ignore
   marketMeta['_quoteSplTokenDecimals'] = market._quoteSplTokenDecimals;
-  // console.log(marketMeta['name']);
 
   let loadTimestamp = new Date().toISOString();
   const accountInfo = await connection.getAccountInfo(market['_decoded'].eventQueue);
@@ -154,14 +62,6 @@ export async function pullAndSaveSerumEventsToCSV(
     if (err) throw err;
   });
 
-  // let marketEventsLength = events.length;
-  // console.log(marketEventsLength);
-
-  // console.log('Pulling event queue at ' + loadTimestamp, INFO_LEVEL, marketMeta);
-
-  const currentMarket = await formatEvents(events, marketMeta, loadTimestamp);
-
-  // all_market_events.push(...currentMarket);
-
+  const currentMarket = formatEvents(events, marketMeta, loadTimestamp);
   writeEventsToCSV(currentMarket, fileName);
-}
+};
