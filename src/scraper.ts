@@ -1,6 +1,6 @@
 import { Connection } from '@solana/web3.js';
 import { Market } from '@project-serum/serum';
-import { appendFile, writeFile, readFile, access, createWriteStream } from 'fs';
+import { appendFile, writeFile, readFile, access } from 'fs';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import { decodeRecentEvents } from './events';
 import { logger } from './utils';
@@ -20,7 +20,6 @@ export class Scraper {
     let marketMeta = { ...this.targetMarket };
 
     let fileName = this.uploader.fileName;
-    // createWriteStream(fileName);
 
     /* Check the file for the last seqNum - if there isn't a file then write one with the seqNum we get back */
     const marketLastSeqFileName = `./pipeline/${marketMeta.address.toString()}_seqnum.json`;
@@ -90,13 +89,10 @@ const convertFullEventMetaToCsv = (event: FullEventMeta): string =>
 export const writeEventsToCSV = (events: FullEventMeta[], eventFilename: string) => {
   for (const event of events) {
     const event_csv = convertFullEventMetaToCsv(event) + '\n';
-    // console.log('writing ' + event_csv);
 
     appendFile(eventFilename, event_csv, (err) => {
       if (err) {
-        console.log('error ' + err);
-      } else {
-        // console.log('wrote ' + event_csv);
+        logger.error(`error ${err}`);
       }
     });
   }

@@ -2,7 +2,9 @@ import { statSync, createReadStream } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
 import { logger } from './utils';
 
-// this class keeps track of the batched files that we're going to upload to S3
+/**
+ * This class keeps track of the batched files that we're going to upload to S3
+ */
 export class S3Uploader {
   fileName: string;
   fileNameTemplate: string;
@@ -36,29 +38,26 @@ export class S3Uploader {
     this.batchFilesizeMB = batchFilesizeMB;
   }
 
-  // this function checks the file to see if it's larger than the threshold before actually uploading
-  // the filename it returns is current working file
+  /**
+   * This function checks the file to see if it's larger than the threshold before actually uploading
+   * the filename it returns is current working file.
+   */
   async batchUploadtoS3(): Promise<void> {
     logger.info(`Checking filesize of ${this.fileName}`);
     const stats = statSync(this.fileName, { throwIfNoEntry: false });
-    // returns undefined if the file does not exist
+    // Return undefined if the file does not exist
     const fileSizeMB = stats ? stats.size / (1024 * 1024) : 0;
 
     if (fileSizeMB > this.batchFilesizeMB) {
-      let loadTimestamp = new Date().toISOString();
       const uploadFile = this.fileName;
-      // update the fileName before attempting the upload so we don't block the scrapers
-      this.fileName = `${this.fileNameTemplate}${loadTimestamp}.csv`;
-      console.log(
-        await uploadToS3(
-          uploadFile,
-          this.accessKeyId,
-          this.secretAccessKey,
-          this.region,
-          this.bucketName,
-          this.folderName,
-          this.ACL,
-        ),
+      await uploadToS3(
+        uploadFile,
+        this.accessKeyId,
+        this.secretAccessKey,
+        this.region,
+        this.bucketName,
+        this.folderName,
+        this.ACL,
       );
     }
   }
@@ -73,8 +72,8 @@ const uploadToS3 = async function (
   folderName: string,
   ACL: string,
 ): Promise<S3.ManagedUpload.SendData> {
-  console.log('Upload to S3 being attempted');
-  console.log(`Trying to upload ${fileName}`);
+  logger.info('Upload to S3 being attempted');
+  logger.info(`Trying to upload ${fileName}`);
 
   const readStream = createReadStream(fileName);
 
@@ -98,7 +97,7 @@ const uploadToS3 = async function (
       if (err) {
         return reject(err);
       }
-
+      logger.info('Upload to S3 successful');
       return resolve(data);
     });
   });

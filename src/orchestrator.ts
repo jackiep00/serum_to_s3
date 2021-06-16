@@ -33,11 +33,11 @@ export const orchestrator = async function () {
   );
   const scrapers: Scraper[] = activeMarkets.map((market) => new Scraper(market, uploader));
 
-  // we need to use a cron lock concept because the scrapers are stateful anyway
-  let cronLocked = false;
+  /* Use a cron lock concept because the scrapers are stateful */
+  let isCronLocked = false;
   cron.schedule(`*/${SECONDS_BETWEEN_RUNS} * * * * *`, async () => {
-    if (!cronLocked) {
-      cronLocked = true;
+    if (!isCronLocked) {
+      isCronLocked = true;
       try {
         logger.info('Starting conditional upload');
         await uploader.batchUploadtoS3();
@@ -50,7 +50,7 @@ export const orchestrator = async function () {
       } catch (err) {
         logger.info(err);
       } finally {
-        cronLocked = false;
+        isCronLocked = false;
       }
     } else {
       logger.info('Cron blocked');
