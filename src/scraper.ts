@@ -4,20 +4,23 @@ import { appendFile, writeFile, readFile, access, createWriteStream } from 'fs';
 import { MarketMeta, FullEvent, FullEventMeta } from './types';
 import { decodeRecentEvents } from './events';
 import { logger } from './utils';
+import { S3Uploader } from './uploader';
 
 export class Scraper {
   targetMarket: MarketMeta;
+  uploader: S3Uploader;
 
-  constructor(market: MarketMeta) {
+  constructor(market: MarketMeta, uploader: S3Uploader) {
     this.targetMarket = market;
+    this.uploader = uploader;
   }
 
   async getParseSaveEventsAsync(connection: Connection) {
     const loadTimestamp = new Date().toISOString();
     let marketMeta = { ...this.targetMarket };
 
-    let fileName = `output/all_market_events_${loadTimestamp}.csv`;
-    createWriteStream(fileName);
+    let fileName = this.uploader.fileName;
+    // createWriteStream(fileName);
 
     /* Check the file for the last seqNum - if there isn't a file then write one with the seqNum we get back */
     const marketLastSeqFileName = `./pipeline/${marketMeta.address.toString()}_seqnum.json`;

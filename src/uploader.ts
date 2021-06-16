@@ -2,15 +2,75 @@ import { statSync, createReadStream } from 'fs';
 import S3 from 'aws-sdk/clients/s3';
 import { logger } from './utils';
 
-const BATCH_FILESIZE_MB = 0.5;
+// this class keeps track of the batched files that we're going to upload to S3
+export class S3Uploader {
+  fileName: string;
+  fileNameTemplate: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  bucketName: string;
+  folderName: string;
+  ACL: string;
+  batchFilesizeMB: number;
+
+  constructor(
+    fileNameTemplate: string,
+    accessKeyId: string,
+    secretAccessKey: string,
+    region: string,
+    bucketName: string,
+    folderName: string,
+    ACL: string = 'private',
+    batchFilesizeMB: number = 0.5,
+  ) {
+    let loadTimestamp = new Date().toISOString();
+    this.fileName = `${fileNameTemplate}${loadTimestamp}.csv`;
+    this.fileNameTemplate = fileNameTemplate;
+    this.accessKeyId = accessKeyId;
+    this.secretAccessKey = secretAccessKey;
+    this.region = region;
+    this.bucketName = bucketName;
+    this.folderName = folderName;
+    this.ACL = ACL;
+    this.batchFilesizeMB = batchFilesizeMB;
+  }
+
+  // this function checks the file to see if it's larger than the threshold before actually uploading
+  // the filename it returns is current working file
+  async batchUploadtoS3(): Promise<void> {
+    logger.info(`Checking filesize of ${this.fileName}`);
+    const stats = statSync(this.fileName, { throwIfNoEntry: false });
+    // returns undefined if the file does not exist
+    const fileSizeMB = stats ? stats.size / (1024 * 1024) : 0;
+
+    if (fileSizeMB > this.batchFilesizeMB) {
+      let loadTimestamp = new Date().toISOString();
+      const uploadFile = this.fileName;
+      // update the fileName before attempting the upload so we don't block the scrapers
+      this.fileName = `${this.fileNameTemplate}${loadTimestamp}.csv`;
+      console.log(
+        await uploadToS3(
+          uploadFile,
+          this.accessKeyId,
+          this.secretAccessKey,
+          this.region,
+          this.bucketName,
+          this.folderName,
+          this.ACL,
+        ),
+      );
+    }
+  }
+}
 
 const uploadToS3 = async function (
   fileName: string,
   accessKeyId: string,
   secretAccessKey: string,
   region: string,
-  bucket_name: string,
-  folder_name: string,
+  bucketName: string,
+  folderName: string,
   ACL: string,
 ): Promise<S3.ManagedUpload.SendData> {
   console.log('Upload to S3 being attempted');
@@ -25,8 +85,8 @@ const uploadToS3 = async function (
   });
 
   const params = {
-    Bucket: bucket_name,
-    Key: folder_name ? `${folder_name}/${fileName}` : fileName,
+    Bucket: bucketName,
+    Key: folderName ? `${folderName}/${fileName}` : fileName,
     Body: readStream,
     ACL: ACL,
   };
@@ -43,40 +103,3 @@ const uploadToS3 = async function (
     });
   });
 };
-
-// this function checks the file to see if it's larger than the threshold before actually uploading
-// the filename it returns is current working file
-export async function batchUploadtoS3(
-  workingFilename: string,
-  filenameTemplate: string,
-  accessKeyId: string,
-  secretAccessKey: string,
-  region: string,
-  bucket_name: string,
-  folder_name: string,
-  ACL: string,
-): Promise<string> {
-  logger.info(`Checking filesize of ${workingFilename}`);
-  const stats = statSync(workingFilename, { throwIfNoEntry: false });
-  // returns undefined if the file does not exist
-  const fileSizeMB = stats ? stats.size / (1024 * 1024) : 0;
-
-  if (fileSizeMB > BATCH_FILESIZE_MB) {
-    // write the filename to a new const so it doesn't get overwritten during the async
-    const uploadFilename = workingFilename;
-    console.log(
-      await uploadToS3(
-        uploadFilename,
-        accessKeyId,
-        secretAccessKey,
-        region,
-        bucket_name,
-        folder_name,
-        ACL,
-      ),
-    );
-    let loadTimestamp = new Date().toISOString();
-    return `${filenameTemplate}${loadTimestamp}.csv`;
-  }
-  return workingFilename;
-}
