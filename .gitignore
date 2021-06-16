@@ -100,6 +100,4 @@ dist
 # TernJS port file
 .tern-port
 
-output/*
 .DS_Store
-pipeline/*
