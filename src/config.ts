@@ -28,3 +28,6 @@ export const BUCKET = process.env.BUCKET
   : throwError(`Must specify valid BUCKET. Got: ${process.env.BUCKET}`);
 
 export const FOLDER = process.env.FOLDER ? process.env.FOLDER : '';
+
+export const BATCH_FILENAME = `pipeline/batchFilename.json`;
+export const BATCH_FILENAME_TEMPLATE = 'output/all_market_events_';

@@ -1,5 +1,6 @@
 declare module 'buffer-layout' {
-  export abstract class Layout<T = unknown> {
+  // TODO: remove `any`.
+  export class Layout<T = any> {
     span: number;
     property?: string;
 
@@ -10,41 +11,16 @@ declare module 'buffer-layout' {
     getSpan(b: Buffer, offset?: number): number;
     replicate(name: string): this;
   }
-  export class Structure<T = unknown> extends Layout<T> {
-    span: number;
+  // TODO: remove any.
+  export class Structure<T = any> extends Layout<T> {
+    span: any;
   }
-
-  export class Blob<T = unknown> extends Layout<T> {
-    span: number;
-
-    encode(src: Buffer, b: Buffer, offset?: number): number;
-  }
-
-  export class UInt<T = unknown> extends Layout<T> {}
-
-  export class BitStructure extends Layout {
-    fields: BitField[];
-    addBoolean(property: string): boolean;
-  }
-
-  class BitField {
-    container: BitStructure;
-    bits: number;
-    valueMask: number;
-    start: number;
-    wordMask: number;
-    property: string;
-
-    constructor(container: BitStructure, bits: number, property: string);
-  }
-
   export function greedy(elementSpan?: number, property?: string): Layout<number>;
   export function offset<T>(
     layout: Layout<T>,
     offset?: number,
     property?: string,
   ): Layout<T>;
-
   export function u8(property?: string): Layout<number>;
   export function u16(property?: string): Layout<number>;
   export function u24(property?: string): Layout<number>;
@@ -80,11 +56,7 @@ declare module 'buffer-layout' {
     property?: string,
     decodePrefixes?: boolean,
   ): Layout<T>;
-  export function bits(
-    word: Layout<number>,
-    msb?: boolean,
-    property?: string,
-  ): BitStructure;
+  export function bits(word: Layout<number>, msb?: boolean, property?: string): any;
   export function seq<T>(
     elementLayout: Layout<T>,
     count: number | Layout<number>,

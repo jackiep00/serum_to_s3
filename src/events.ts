@@ -1,8 +1,21 @@
-// code chunk one
+import { bits, blob, struct, u8, u32 } from 'buffer-layout';
+import {
+  accountFlagsLayout,
+  publicKeyLayout,
+  u128,
+  u64,
+  zeros,
+} from '@project-serum/serum/lib/layout';
+import { FullEvent } from './types';
 
-const EVENT_QUEUE_HEADER = struct([
+interface EventQueueHeader {
+  head: number;
+  count: number;
+  seqNum: number;
+}
+
+const EVENT_QUEUE_HEADER = struct<EventQueueHeader>([
   blob(5),
-
   accountFlagsLayout('accountFlags'),
   u32('head'),
   zeros(4),
@@ -18,7 +31,7 @@ EVENT_FLAGS.addBoolean('out');
 EVENT_FLAGS.addBoolean('bid');
 EVENT_FLAGS.addBoolean('maker');
 
-const EVENT = struct([
+const EVENT = struct<FullEvent>([
   EVENT_FLAGS,
   u8('openOrdersSlot'),
   u8('feeTier'),
@@ -33,7 +46,7 @@ const EVENT = struct([
 
 export function decodeRecentEvents(buffer: Buffer, lastSeenSeqNum?: number) {
   const header = EVENT_QUEUE_HEADER.decode(buffer);
-  const nodes: any[] = [];
+  const events: FullEvent[] = [];
 
   if (lastSeenSeqNum !== undefined) {
     const allocLen = Math.floor((buffer.length - EVENT_QUEUE_HEADER.span) / EVENT.span);
@@ -46,46 +59,9 @@ export function decodeRecentEvents(buffer: Buffer, lastSeenSeqNum?: number) {
         buffer,
         EVENT_QUEUE_HEADER.span + nodeIndex * EVENT.span,
       );
-      nodes.push(decodedItem);
+      events.push(decodedItem);
     }
   }
 
-  return { header, nodes };
-}
-
-// code chunk two
-
-var lastSeenSeqNum = undefined;
-
-for (let i = 0; i < 50; ++i) {
-  const status = await connection.getSignatureStatus(txid);
-  console.log({ status: status!.value!.confirmations });
-
-  let orders = await market.loadOrdersForOwner(connection, payer.publicKey);
-  console.log({ orders });
-
-  const info = await connection.getAccountInfo(market['_decoded'].eventQueue);
-  const { header, nodes } = decodeRecentEvents(info!.data, lastSeenSeqNum);
-  console.log({
-    header,
-    nodes: nodes.map((n) => [
-      n.nativeQuantityPaid.toNumber(),
-      n.nativeQuantityReleased.toNumber(),
-    ]),
-  });
-  lastSeenSeqNum = header.seqNum;
-
-  const liqorWalletAccounts = await getMultipleAccounts(
-    connection,
-    tokenWallets,
-    'processed' as Commitment,
-  );
-  const liqorValuesUi = liqorWalletAccounts.map((a, i) =>
-    nativeToUi(
-      parseTokenAccountData(a.accountInfo.data).amount,
-      mangoGroup.mintDecimals[i],
-    ),
-  );
-  console.log({ liqorValuesUi });
-  await sleep(500);
+  return { header, events };
 }
