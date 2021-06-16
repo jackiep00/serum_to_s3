@@ -29,7 +29,7 @@ export const orchestrator = async function () {
     BUCKET,
     FOLDER,
     'private',
-    0.5,
+    250,
   );
   const scrapers: Scraper[] = activeMarkets.map((market) => new Scraper(market, uploader));
 
