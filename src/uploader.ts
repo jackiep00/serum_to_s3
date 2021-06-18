@@ -49,9 +49,8 @@ export class S3Uploader {
     const fileSizeMB = stats ? stats.size / (1024 * 1024) : 0;
 
     if (fileSizeMB > this.batchFilesizeMB) {
-      const uploadFile = this.fileName;
       await uploadToS3(
-        uploadFile,
+        this.filename,
         this.accessKeyId,
         this.secretAccessKey,
         this.region,
@@ -59,6 +58,8 @@ export class S3Uploader {
         this.folderName,
         this.ACL,
       );
+      const loadTimestamp = new Date().toISOString();
+      this.fileName = `${this.fileNameTemplate}${loadTimestamp}.csv`;
     }
   }
 }
