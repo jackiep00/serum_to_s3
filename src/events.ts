@@ -55,6 +55,9 @@ export function decodeRecentEvents(buffer: Buffer, lastSeenSeqNum?: number) {
 
     for (let i = newEventsCount; i > 0; --i) {
       const nodeIndex = (header.head + header.count + allocLen - i) % allocLen;
+      if (nodeIndex < 0) {
+        // TODO: throw an error "Events skipped - seqNum difference too large relative to total buffer size"
+      }
       const decodedItem = EVENT.decode(
         buffer,
         EVENT_QUEUE_HEADER.span + nodeIndex * EVENT.span,
