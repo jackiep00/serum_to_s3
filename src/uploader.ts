@@ -50,7 +50,7 @@ export class S3Uploader {
 
     if (fileSizeMB > this.batchFilesizeMB) {
       await uploadToS3(
-        this.filename,
+        this.fileName,
         this.accessKeyId,
         this.secretAccessKey,
         this.region,
