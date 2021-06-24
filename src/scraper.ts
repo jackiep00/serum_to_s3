@@ -36,6 +36,7 @@ export class Scraper {
     });
 
     const currentMarket = formatEvents(events, marketMeta, loadTimestamp);
+    logger.info(`Writing currentMarket: ${currentMarket}`);
     writeEventsToCSV(currentMarket, fileName);
   }
 }
