@@ -27,6 +27,7 @@ export class Scraper {
     const market = await Market.load(connection, marketMeta.address, {}, marketMeta.programId);
 
     marketMeta = constructMarketMeta(market, marketMeta);
+
     const accountInfo = await fetchAccountInfo(connection, market);
     const { header, events } = decodeRecentEvents(accountInfo.data, marketMeta.lastSeqNum);
     marketMeta.lastSeqNum = header.seqNum;
@@ -36,6 +37,7 @@ export class Scraper {
     });
 
     const currentMarket = formatEvents(events, marketMeta, loadTimestamp);
+    logger.info(`Writing Market: ${marketMeta.name}`);
     writeEventsToCSV(currentMarket, fileName);
   }
 }
@@ -144,7 +146,7 @@ const constructMarketMeta = (market: Market, marketMeta: MarketMeta) => {
   constructedMarketMeta.baseCurrency = marketMeta.name.split('/')[0];
   constructedMarketMeta.quoteCurrency = marketMeta.name.split('/')[1];
 
-  return marketMeta;
+  return constructedMarketMeta;
 };
 
 const fetchAccountInfo = async (connection: Connection, market: Market) => {
